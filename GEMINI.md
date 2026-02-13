@@ -1,0 +1,37 @@
+# GEMINI.md: AI Agent Guide for Mini-Core
+
+## Project Context
+Mini-Core is a database-first simulation of a core banking system. All logic is implemented in PostgreSQL via triggers and functions. Schema management is handled strictly through Liquibase XML changesets.
+
+## Core Mandates for AI Agents
+- **Strict Liquibase Usage**: Never execute DDL directly against the database. All schema changes (tables, types, functions, triggers) MUST be authored as new XML changesets in `db/changelog/changes/`.
+- **Atomic Changesets**: Each changeset should perform one logical operation (e.g., creating one table or one function).
+- **Immutable Transactions**: The `transactions` table is insert-only. Do not implement logic that assumes updates or deletes on this table.
+- **Outbox Integrity**: Every change to `accounts` or `transactions` must be captured by their respective outbox triggers.
+- **Balance Logic**: Always account for both `available_balance` and `collected_balance`. `PENDING` transactions only affect `collected_balance`.
+
+## Development Workflows
+
+### Adding/Modifying Schema
+1. Create a new XML file in `db/changelog/changes/` following the naming convention (e.g., `007-new-feature.xml`).
+2. Add the file to `db/changelog/db.changelog-master.xml`.
+3. Use `run_shell_command` to execute `docker-compose up` or `liquibase update` to apply changes.
+
+### Modifying PL/pgSQL Logic
+1. Locate the relevant function/trigger in `004-create-functions-and-triggers.xml` (or a newer file).
+2. Create a new changeset with `replaceIfExists="true"` or drop and recreate the function.
+3. Ensure the trigger name remains consistent to avoid orphaned triggers.
+
+### Verification
+- **Balance Checks**: After inserting transactions, verify that `transaction_balances` matches the current state in `accounts`.
+- **Sync Wait**: Verify that `outbox_accounts_sync_wait_confirmation` and `outbox_transactions_sync_wait_confirmation` are populated correctly upon bulk creation.
+
+## Command Reference
+- **Start with seed data**: `LIQUIBASE_CONTEXTS=seed docker-compose up`
+- **Re-download JDBC driver**: `curl -L -o drivers/postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.5.jar`
+- **Check Liquibase status**: `cd db && liquibase status`
+
+## Common Pitfalls
+- **Schema Name**: Always use the `minicore` schema prefix (e.g., `minicore.accounts`).
+- **Trigger Execution Order**: Remember the chain: `Transaction Insert -> Balance Update -> Account Outbox`.
+- **Numeric Precision**: Always use `NUMERIC(18,2)` for financial amounts.

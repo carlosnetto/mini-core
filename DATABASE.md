@@ -137,7 +137,6 @@ Populated automatically by a trigger on `accounts`. On INSERT, writes one POS ro
 | `currency_code` | VARCHAR(3) | Mirrored |
 | `account_created_at` | TIMESTAMPTZ | Mirrored (renamed to avoid collision with outbox `created_at`) |
 | `account_updated_at` | TIMESTAMPTZ | Mirrored |
-| `processed` | BOOLEAN | Default: false. Partial index covers unprocessed rows. |
 | `created_at` | TIMESTAMPTZ | When the outbox event was created |
 
 ### outbox_transactions
@@ -157,10 +156,9 @@ Populated automatically by a trigger on `transactions` (AFTER INSERT only — tr
 | `json_payload` | JSONB | Mirrored |
 | `effective_date` | DATE | Mirrored |
 | `transaction_created_at` | TIMESTAMPTZ | Mirrored (renamed) |
-| `processed` | BOOLEAN | Default: false |
 | `created_at` | TIMESTAMPTZ | When the outbox event was created |
 
-Both outbox tables have a **partial index** on `event_id WHERE processed = false` for efficient polling of unprocessed events.
+Events not yet included in a bulk are identified by having `event_id` greater than the `last_event_id` of the most recent bulk — no status column needed.
 
 ---
 
@@ -226,7 +224,7 @@ Maps local transaction IDs to Digital Twin transaction IDs for cross-system refe
 
 ### sync_cursors
 
-Bookmarks used by the sync process to remember where it left off when scanning outbox tables for unprocessed events.
+Bookmarks used by the sync process to track progress.
 
 | Column | Type | Notes |
 |--------|------|-------|

@@ -48,7 +48,7 @@ bulk_id | first_event_id | last_event_id | status  | sent_at | confirmed_at
 ```
 
 A sync process periodically:
-1. Queries unprocessed outbox events (using the partial index `WHERE processed = false`)
+1. Finds events not yet bulked by selecting those with `event_id` greater than the `last_event_id` of the most recent bulk (or from the beginning if no bulk exists yet)
 2. Creates a bulk record covering a range of event IDs — status: **CREATED**
 3. Serializes the events in the range (see "Wire Format" below)
 4. Updates the bulk to **SENDING** and transmits the payload
@@ -152,7 +152,7 @@ The `dtw_confirmation` field holds whatever reference Digital Twin returns — t
    |-> INSERT outbox_transactions (full transaction copy)
    |
    v
-3. Sync process picks up unprocessed outbox events
+3. Sync process picks up events after the last bulk's last_event_id
    |
    v
 4. INSERT INTO outbox_transactions_bulk (first=N, last=M)
@@ -184,7 +184,7 @@ The sync wait tables are the primary monitoring surface:
 | `SELECT COUNT(*) FROM outbox_transactions_sync_wait_confirmation` | How many events are in flight? Should be small. |
 | `... JOIN bulk WHERE sent_at < NOW() - INTERVAL '5 min'` | What's stuck? Events sent but not confirmed. |
 | `... JOIN bulk WHERE status = 'CREATED'` | What hasn't been sent yet? |
-| `SELECT COUNT(*) FROM outbox_transactions WHERE processed = false` | How many events haven't been bulked yet? |
+| `SELECT COUNT(*) FROM outbox_transactions WHERE event_id > (SELECT COALESCE(MAX(last_event_id), 0) FROM outbox_transactions_bulk)` | How many events haven't been bulked yet? |
 
 In a healthy system:
 - The sync wait tables have at most a few thousand rows (the last 1-2 unsent/unconfirmed bulks)
@@ -193,5 +193,5 @@ In a healthy system:
 
 An unhealthy system shows:
 - Growing sync wait table (confirmations not coming back)
-- Growing unprocessed outbox events (bulk creation falling behind)
+- Growing unbulked events (bulk creation falling behind)
 - Old `sent_at` timestamps in bulk table (Digital Twin not responding)

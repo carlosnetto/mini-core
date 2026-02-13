@@ -10,5 +10,6 @@
     <include file="changes/003-create-indexes.xml" relativeToChangelogFile="true"/>
     <include file="changes/004-create-functions-and-triggers.xml" relativeToChangelogFile="true"/>
     <include file="changes/005-seed-data.xml" relativeToChangelogFile="true"/>
+    <include file="changes/006-remove-processed-column.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

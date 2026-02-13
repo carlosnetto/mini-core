@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="drop-idx-outbox-accounts-unprocessed" author="mini-core">
+        <sql>DROP INDEX IF EXISTS minicore.idx_outbox_accounts_unprocessed</sql>
+    </changeSet>
+
+    <changeSet id="drop-idx-outbox-transactions-unprocessed" author="mini-core">
+        <sql>DROP INDEX IF EXISTS minicore.idx_outbox_transactions_unprocessed</sql>
+    </changeSet>
+
+    <changeSet id="drop-processed-from-outbox-accounts" author="mini-core">
+        <sql>ALTER TABLE minicore.outbox_accounts DROP COLUMN processed</sql>
+    </changeSet>
+
+    <changeSet id="drop-processed-from-outbox-transactions" author="mini-core">
+        <sql>ALTER TABLE minicore.outbox_transactions DROP COLUMN processed</sql>
+    </changeSet>
+
+</databaseChangeLog>

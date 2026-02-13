@@ -23,12 +23,12 @@ db/
     changes/
       001-create-types.xml            #  7 changesets — enums
       002-create-tables.xml           # 18 changesets — sequences, all tables
-      003-create-indexes.xml          # 13 changesets — all indexes
+      003-create-indexes.xml          # 11 changesets — all indexes
       004-create-functions-and-triggers.xml  # 16 changesets — all PL/pgSQL functions + triggers
       005-seed-data.xml               #  5 changesets — reference data (always) + test data (context=seed)
 ```
 
-**Total: 59 changesets across 5 files.**
+**Total: 57 changesets across 5 files.**
 
 ## Running
 
@@ -89,7 +89,7 @@ curl -L -o drivers/postgresql.jar https://jdbc.postgresql.org/download/postgresq
 
 **Sync infrastructure:**
 - `dtw_transaction_mapping` — Maps local transaction_id to DTW transaction_id.
-- `sync_cursors` — Tracks last processed event_id per sync process.
+- `sync_cursors` — Tracks sync process progress.
 
 **Reference/configuration tables:**
 - `balances` — Two rows: AVAILABLE, COLLECTED. FK target for balance effects.

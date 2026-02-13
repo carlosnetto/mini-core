@@ -1,2 +1,4 @@
 .env
 drivers/
+docs/erd/
+.DS_Store

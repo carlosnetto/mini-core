@@ -26,9 +26,10 @@ db/
       003-create-indexes.xml          # 11 changesets — all indexes
       004-create-functions-and-triggers.xml  # 16 changesets — all PL/pgSQL functions + triggers
       005-seed-data.xml               #  5 changesets — reference data (always) + test data (context=seed)
+      006-remove-processed-column.xml  #  4 changesets — drops processed column and its indexes from outbox tables
 ```
 
-**Total: 57 changesets across 5 files.**
+**Total: 63 changesets across 6 files.**
 
 ## Running
 

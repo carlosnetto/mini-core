@@ -139,6 +139,7 @@ db/
       003-create-indexes.xml                # 11 indexes
       004-create-functions-and-triggers.xml # 16 functions & triggers
       005-seed-data.xml                     # Reference + test data
+      006-remove-processed-column.xml       # Drops processed column from outbox tables
 ```
 
 ## License

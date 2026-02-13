@@ -1,0 +1,43 @@
+# History
+
+## February 12, 2026
+
+Project inception.
+
+- **Initial commit**: LICENSE file (Apache 2.0).
+- **README**: Initial project README.
+
+## February 13, 2026
+
+### Schema & Infrastructure
+
+- **Complete Liquibase schema**: 59 changesets across 5 files — 7 enums, 16 tables, 13 indexes, 8 trigger/function pairs, and 86 US banking transaction codes. Includes Outbox Pattern for CDC, bulk sync control, and auto-managed sync wait confirmation tables. Docker Compose setup for running Liquibase automatically.
+- **Documentation**: CLAUDE.md (AI agent guidelines), DATABASE.md (full data model reference), SYNC.md (sync architecture), and comprehensive README.
+- **Remove processed column**: Dropped `processed` boolean and its partial indexes from outbox tables. Bulking uses `event_id > last bulk's last_event_id` instead.
+- **TODO list**: Architecture improvement items identified with Gemini 2.0 Flash (GEMINI.md + TODO.md).
+
+### Architecture Improvements
+
+The following items were originally tracked in TODO.md and addressed during this session.
+
+### High Priority: Core Logic & Consistency
+
+- **Data-Driven Balance Logic**: Refactored `fn_update_account_balance` to query `transaction_code_balance_effects` instead of using hardcoded `IF/ELSE` logic for direction and status.
+
+- **Reconcile Transaction Codes**: Unified the transaction code systems. The `transactions` table now uses the same type (NUMERIC) as `transaction_codes` and references it via a Foreign Key instead of a hardcoded `CHECK` constraint.
+
+- **Fix Lifecycle Status Updates**: Resolved via linked modifier rows. PENDING transactions are confirmed or cancelled by inserting a new row with `original_transaction_id` pointing to the original. No UPDATEs needed. A `trg_prevent_transaction_update` trigger enforces immutability at the database level.
+
+### Medium Priority: Performance & Scalability
+
+- **Optimize Sync Wait Fan-out**: Not needed. Confirmations arrive per-event (not per-bulk), since a transaction sent in one bulk can be confirmed in another bulk or individually. The 1:1 sync_wait rows are the correct granularity — bulk is only a transmission accelerator, not a confirmation unit.
+
+- **Outbox Naming Convention**: Mirrored columns now use identical names as their source tables. The outbox's own timestamp was renamed from `created_at` to `event_created_at` to avoid collision.
+
+### Low Priority: Data Integrity & Extension
+
+- **Currency Validation**: Added `currencies` reference table (USD, BRL, USDC, USDT, POL, ETH, BRL1, BRLD, BRLV, BRLN) with FK from `accounts.currency_code`. Transactions inherit currency from their account via `account_id` FK, so no mismatch is possible.
+
+- **Schema-level Constraints**: Keeping `json_payload` as JSONB is the right call. The metadata per transaction is impossible to know in advance — RTP, FedNow, Pix, blockchain txHash, check numbers, terminal IDs — each payment rail carries fundamentally different information. Dedicated columns would require schema changes for every new rail. **Production note:** If row width becomes a concern, a separate `transaction_payloads` table (same PK as `transactions`, containing only the JSONB) could reduce I/O for queries that don't need the payload. However, PostgreSQL already optimizes this via TOAST: JSONB values exceeding ~2KB are automatically stored out-of-line in a separate TOAST table, so queries that don't SELECT `json_payload` don't pay the I/O cost. A manual split would only add JOIN complexity without meaningful benefit unless the payload is consistently small enough to stay inline and scans are frequent. For this system, TOAST is sufficient.
+
+- **Audit Trail**: Added optional `created_by` VARCHAR(20) to `accounts`, `transactions`, and their outbox mirrors. No validation — free-form text for the caller to identify itself.

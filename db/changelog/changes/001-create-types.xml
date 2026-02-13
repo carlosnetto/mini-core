@@ -21,7 +21,7 @@
     </changeSet>
 
     <changeSet id="create-transaction-status-enum" author="mini-core">
-        <sql>CREATE TYPE minicore.transaction_status_enum AS ENUM ('PENDING', 'POSTED', 'REVERSED')</sql>
+        <sql>CREATE TYPE minicore.transaction_status_enum AS ENUM ('PENDING', 'POSTED', 'CANCELLED')</sql>
         <rollback>DROP TYPE IF EXISTS minicore.transaction_status_enum</rollback>
     </changeSet>
 

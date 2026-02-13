@@ -41,7 +41,7 @@ liquibase update --contexts=seed
 ### Core Banking
 
 - **Accounts** with two balances: available and collected
-- **Transactions** (immutable, insert-only) that automatically update account balances via triggers
+- **Transactions** (immutable, insert-only) with numeric codes from the 86-code catalog, data-driven balance updates via triggers, and a lifecycle model where PENDING transactions are confirmed or cancelled by inserting linked modifier rows
 - **Transaction balances** — a running balance snapshot recorded after every transaction
 - **86 US banking transaction codes** (deposits, withdrawals, fees) with configurable balance effects
 
@@ -87,6 +87,7 @@ minicore
   ├── dtw_transaction_mapping               Local <-> DTW transaction ID map
   ├── sync_cursors                          Sync process bookmarks
   │
+  ├── currencies                            Reference: 10 supported currencies
   ├── balances                              Reference: AVAILABLE, COLLECTED
   ├── transaction_codes                     Reference: 86 US banking codes
   └── transaction_code_balance_effects      Config: which balances each code affects
@@ -97,7 +98,8 @@ minicore
 **On transaction INSERT:**
 ```
 INSERT transaction
-  -> update account balances (available/collected)
+  -> validate lifecycle rules (modifier must target PENDING, same account, etc.)
+  -> update account balances (data-driven from transaction_code_balance_effects)
        -> write PRE + POS to outbox_accounts
   -> write balance snapshot to transaction_balances
   -> write to outbox_transactions
@@ -119,9 +121,9 @@ When running with `--contexts=seed`, creates 5 accounts and 10 transactions:
 
 | Account | Type | Available | Collected | Note |
 |---------|------|-----------|-----------|------|
-| 1000000001 | DDA | 7,950.00 | 17,950.00 | Includes $10K pending check |
+| 1000000001 | DDA | 17,950.00 | 17,950.00 | PENDING affects both balances |
 | 1000000002 | SAV | 24,012.50 | 24,012.50 | |
-| 1000000003 | MMA | 150,062.50 | 150,062.50 | Fee reversed |
+| 1000000003 | MMA | 150,062.50 | 150,062.50 | Fee reversal is a POSTED credit |
 | 1000000004 | HSA | 3,200.00 | 3,200.00 | Dormant, no transactions |
 | 1000000005 | CD | 50,000.00 | 50,000.00 | No transactions |
 
@@ -135,9 +137,9 @@ db/
     db.changelog-master.xml
     changes/
       001-create-types.xml                  # 7 enums
-      002-create-tables.xml                 # 18 tables & sequences
-      003-create-indexes.xml                # 11 indexes
-      004-create-functions-and-triggers.xml # 16 functions & triggers
+      002-create-tables.xml                 # 19 tables & sequences
+      003-create-indexes.xml                # 13 indexes
+      004-create-functions-and-triggers.xml # 20 functions & triggers
       005-seed-data.xml                     # Reference + test data
       006-remove-processed-column.xml       # Drops processed column from outbox tables
 ```

@@ -12,43 +12,58 @@
             CREATE OR REPLACE FUNCTION minicore.fn_update_account_balance()
             RETURNS TRIGGER AS $$
             DECLARE
-                v_amount    NUMERIC(18,2);
-                v_available NUMERIC(18,2);
-                v_collected NUMERIC(18,2);
+                v_code        NUMERIC(5);
+                v_amount      NUMERIC(18,2);
+                v_sign        SMALLINT;
+                v_avail_delta NUMERIC(18,2);
+                v_coll_delta  NUMERIC(18,2);
+                v_available   NUMERIC(18,2);
+                v_collected   NUMERIC(18,2);
             BEGIN
-                -- Determine signed amount based on direction
-                IF NEW.direction = 'CREDIT' THEN
-                    v_amount := NEW.amount;
+                IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'POSTED' THEN
+                    -- Confirmation of a PENDING: balance already applied, just snapshot
+                    SELECT available_balance, collected_balance
+                    INTO v_available, v_collected
+                    FROM minicore.accounts
+                    WHERE account_id = NEW.account_id;
                 ELSE
-                    v_amount := -NEW.amount;
-                END IF;
+                    IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'CANCELLED' THEN
+                        -- Cancellation: reverse the ORIGINAL transaction's balance effects
+                        SELECT transaction_code, amount
+                        INTO v_code, v_amount
+                        FROM minicore.transactions
+                        WHERE transaction_id = NEW.original_transaction_id;
+                        v_sign := -1;
+                    ELSE
+                        -- Born transaction (PENDING or POSTED): apply effects normally
+                        v_code := NEW.transaction_code;
+                        v_amount := NEW.amount;
+                        v_sign := 1;
+                    END IF;
 
-                -- REVERSED flips the sign
-                IF NEW.status = 'REVERSED' THEN
-                    v_amount := -v_amount;
-                END IF;
+                    -- Compute balance deltas from transaction_code_balance_effects
+                    SELECT
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'AVAILABLE' THEN v_sign * v_amount * e.effect END), 0),
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'COLLECTED' THEN v_sign * v_amount * e.effect END), 0)
+                    INTO v_avail_delta, v_coll_delta
+                    FROM minicore.transaction_code_balance_effects e
+                    WHERE e.transaction_code = v_code;
 
-                -- Apply to balances based on status and capture resulting balances
-                IF NEW.status = 'PENDING' THEN
+                    -- Apply deltas
                     UPDATE minicore.accounts
-                    SET collected_balance = collected_balance + v_amount,
+                    SET available_balance = available_balance + v_avail_delta,
+                        collected_balance = collected_balance + v_coll_delta,
                         updated_at = NOW()
                     WHERE account_id = NEW.account_id
                     RETURNING available_balance, collected_balance
                     INTO v_available, v_collected;
-                ELSE
-                    UPDATE minicore.accounts
-                    SET available_balance = available_balance + v_amount,
-                        collected_balance = collected_balance + v_amount,
-                        updated_at = NOW()
-                    WHERE account_id = NEW.account_id
-                    RETURNING available_balance, collected_balance
-                    INTO v_available, v_collected;
                 END IF;
 
-                -- Record the post-transaction balance snapshot
-                INSERT INTO minicore.transaction_balances (transaction_id, account_id, available_balance, collected_balance)
-                VALUES (NEW.transaction_id, NEW.account_id, v_available, v_collected);
+                -- Record post-transaction balance snapshot
+                INSERT INTO minicore.transaction_balances
+                    (transaction_id, account_id, available_balance, collected_balance)
+                VALUES
+                    (NEW.transaction_id, NEW.account_id, v_available, v_collected);
 
                 RETURN NEW;
             END;
@@ -77,20 +92,20 @@
                 IF TG_OP = 'UPDATE' THEN
                     -- Pre-update snapshot
                     INSERT INTO minicore.outbox_accounts
-                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
                     VALUES
-                        ('UPDATE', 'PRE', OLD.account_id, OLD.account_number, OLD.product_type, OLD.status, OLD.available_balance, OLD.collected_balance, OLD.currency_code, OLD.created_at, OLD.updated_at);
+                        ('UPDATE', 'PRE', OLD.account_id, OLD.account_number, OLD.product_type, OLD.status, OLD.available_balance, OLD.collected_balance, OLD.currency_code, OLD.created_by, OLD.created_at, OLD.updated_at);
                     -- Post-update snapshot
                     INSERT INTO minicore.outbox_accounts
-                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
                     VALUES
-                        ('UPDATE', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_at, NEW.updated_at);
+                        ('UPDATE', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
                 ELSE
                     -- INSERT: only post snapshot (no prior state)
                     INSERT INTO minicore.outbox_accounts
-                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
                     VALUES
-                        ('INSERT', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_at, NEW.updated_at);
+                        ('INSERT', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
                 END IF;
                 RETURN NEW;
             END;
@@ -117,9 +132,9 @@
             RETURNS TRIGGER AS $$
             BEGIN
                 INSERT INTO minicore.outbox_transactions
-                    (operation_type, transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date, transaction_created_at)
+                    (operation_type, transaction_id, account_id, original_transaction_id, transaction_code, amount, direction, status, json_payload, effective_date, created_by, created_at)
                 VALUES
-                    ('INSERT', NEW.transaction_id, NEW.account_id, NEW.transaction_code, NEW.amount, NEW.direction, NEW.status, NEW.json_payload, NEW.effective_date, NEW.created_at);
+                    ('INSERT', NEW.transaction_id, NEW.account_id, NEW.original_transaction_id, NEW.transaction_code, NEW.amount, NEW.direction, NEW.status, NEW.json_payload, NEW.effective_date, NEW.created_by, NEW.created_at);
                 RETURN NEW;
             END;
             $$ LANGUAGE plpgsql
@@ -239,6 +254,87 @@
             EXECUTE FUNCTION minicore.fn_cleanup_transactions_sync_wait_confirmation()
         </sql>
         <rollback>DROP TRIGGER IF EXISTS trg_cleanup_transactions_sync_wait_confirmation ON minicore.outbox_transactions_confirmations</rollback>
+    </changeSet>
+
+    <!-- ==================== Transaction lifecycle validation ==================== -->
+
+    <changeSet id="fn-validate-transaction-lifecycle" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_validate_transaction_lifecycle()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_orig_status  minicore.transaction_status_enum;
+                v_orig_parent  BIGINT;
+                v_orig_account BIGINT;
+            BEGIN
+                IF NEW.original_transaction_id IS NOT NULL THEN
+                    -- Look up the original transaction
+                    SELECT status, original_transaction_id, account_id
+                    INTO v_orig_status, v_orig_parent, v_orig_account
+                    FROM minicore.transactions
+                    WHERE transaction_id = NEW.original_transaction_id;
+
+                    IF NOT FOUND THEN
+                        RAISE EXCEPTION 'Original transaction % does not exist', NEW.original_transaction_id;
+                    END IF;
+
+                    -- Original must be a born PENDING (not itself a modifier)
+                    IF v_orig_status != 'PENDING' THEN
+                        RAISE EXCEPTION 'Can only confirm/cancel PENDING transactions (original % is %)',
+                            NEW.original_transaction_id, v_orig_status;
+                    END IF;
+
+                    IF v_orig_parent IS NOT NULL THEN
+                        RAISE EXCEPTION 'Cannot modify a modifier transaction (original % is itself a modifier)',
+                            NEW.original_transaction_id;
+                    END IF;
+
+                    -- Must target the same account
+                    IF v_orig_account != NEW.account_id THEN
+                        RAISE EXCEPTION 'Modifier account_id (%) must match original account_id (%)',
+                            NEW.account_id, v_orig_account;
+                    END IF;
+                END IF;
+
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_validate_transaction_lifecycle()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-validate-transaction-lifecycle" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_validate_transaction_lifecycle
+            BEFORE INSERT ON minicore.transactions
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_validate_transaction_lifecycle()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_validate_transaction_lifecycle ON minicore.transactions</rollback>
+    </changeSet>
+
+    <!-- ==================== Transaction immutability ==================== -->
+
+    <changeSet id="fn-prevent-transaction-update" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_prevent_transaction_update()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                RAISE EXCEPTION 'Transactions are immutable and cannot be updated';
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_prevent_transaction_update()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-prevent-transaction-update" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_prevent_transaction_update
+            BEFORE UPDATE ON minicore.transactions
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_prevent_transaction_update()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_prevent_transaction_update ON minicore.transactions</rollback>
     </changeSet>
 
     <!-- ==================== Balance effect consistency ==================== -->

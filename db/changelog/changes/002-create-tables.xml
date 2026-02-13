@@ -28,7 +28,8 @@
                 status            minicore.account_status_enum  NOT NULL DEFAULT 'ACTIVE',
                 available_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
                 collected_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
-                currency_code     VARCHAR(3)      NOT NULL DEFAULT 'USD',
+                currency_code     VARCHAR(10)      NOT NULL DEFAULT 'USD',
+                created_by        VARCHAR(20),
                 created_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
                 updated_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW()
             )
@@ -39,17 +40,23 @@
     <changeSet id="create-transactions-table" author="mini-core">
         <sql>
             CREATE TABLE minicore.transactions (
-                transaction_id   BIGINT          PRIMARY KEY DEFAULT nextval('minicore.transactions_transaction_id_seq'),
-                account_id       BIGINT          NOT NULL REFERENCES minicore.accounts(account_id),
-                transaction_code VARCHAR(10)     NOT NULL,
-                amount           NUMERIC(18,2)   NOT NULL,
-                direction        minicore.transaction_direction_enum NOT NULL,
-                status           minicore.transaction_status_enum    NOT NULL DEFAULT 'PENDING',
-                json_payload     JSONB,
-                effective_date   DATE            NOT NULL DEFAULT CURRENT_DATE,
-                created_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-                CONSTRAINT chk_transaction_code CHECK (transaction_code IN ('DEP','WDL','TFR','FEE','INT','ADJ','PMT','REV','CHK','ACH','WIR')),
-                CONSTRAINT chk_amount_positive  CHECK (amount > 0)
+                transaction_id          BIGINT          PRIMARY KEY DEFAULT nextval('minicore.transactions_transaction_id_seq'),
+                account_id              BIGINT          NOT NULL REFERENCES minicore.accounts(account_id),
+                original_transaction_id BIGINT          UNIQUE REFERENCES minicore.transactions(transaction_id),
+                transaction_code        NUMERIC(5)      NOT NULL,
+                amount                  NUMERIC(18,2)   NOT NULL,
+                direction               minicore.transaction_direction_enum NOT NULL,
+                status                  minicore.transaction_status_enum    NOT NULL DEFAULT 'PENDING',
+                json_payload            JSONB,
+                effective_date          DATE            NOT NULL DEFAULT CURRENT_DATE,
+                created_by              VARCHAR(20),
+                created_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+                CONSTRAINT chk_amount_positive CHECK (amount > 0),
+                CONSTRAINT chk_transaction_lifecycle CHECK (
+                    (original_transaction_id IS NULL AND status IN ('PENDING', 'POSTED'))
+                    OR
+                    (original_transaction_id IS NOT NULL AND status IN ('POSTED', 'CANCELLED'))
+                )
             )
         </sql>
         <rollback>DROP TABLE IF EXISTS minicore.transactions</rollback>
@@ -82,11 +89,12 @@
                 status             minicore.account_status_enum NOT NULL,
                 available_balance  NUMERIC(18,2)   NOT NULL,
                 collected_balance  NUMERIC(18,2)   NOT NULL,
-                currency_code      VARCHAR(3)      NOT NULL,
-                account_created_at TIMESTAMPTZ     NOT NULL,
-                account_updated_at TIMESTAMPTZ     NOT NULL,
+                currency_code      VARCHAR(10)      NOT NULL,
+                created_by         VARCHAR(20),
+                created_at         TIMESTAMPTZ     NOT NULL,
+                updated_at         TIMESTAMPTZ     NOT NULL,
                 processed          BOOLEAN         NOT NULL DEFAULT FALSE,
-                created_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+                event_created_at   TIMESTAMPTZ     NOT NULL DEFAULT NOW()
             )
         </sql>
         <rollback>DROP TABLE IF EXISTS minicore.outbox_accounts</rollback>
@@ -99,15 +107,17 @@
                 operation_type         minicore.operation_type_enum NOT NULL,
                 transaction_id         BIGINT          NOT NULL,
                 account_id             BIGINT          NOT NULL,
-                transaction_code       VARCHAR(10)     NOT NULL,
+                original_transaction_id BIGINT,
+                transaction_code       NUMERIC(5)      NOT NULL,
                 amount                 NUMERIC(18,2)   NOT NULL,
                 direction              minicore.transaction_direction_enum NOT NULL,
                 status                 minicore.transaction_status_enum    NOT NULL,
                 json_payload           JSONB,
                 effective_date         DATE            NOT NULL,
-                transaction_created_at TIMESTAMPTZ     NOT NULL,
+                created_by             VARCHAR(20),
+                created_at             TIMESTAMPTZ     NOT NULL,
                 processed              BOOLEAN         NOT NULL DEFAULT FALSE,
-                created_at             TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+                event_created_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW()
             )
         </sql>
         <rollback>DROP TABLE IF EXISTS minicore.outbox_transactions</rollback>
@@ -221,6 +231,25 @@
 
     <!-- ==================== Reference tables ==================== -->
 
+    <changeSet id="create-currencies-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.currencies (
+                currency_code VARCHAR(10) PRIMARY KEY
+            );
+            INSERT INTO minicore.currencies (currency_code) VALUES ('USD');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRL');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('USDC');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('USDT');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('POL');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('ETH');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRL1');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRLD');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRLV');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRLN')
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.currencies</rollback>
+    </changeSet>
+
     <changeSet id="create-balances-table" author="mini-core">
         <sql>
             CREATE TABLE minicore.balances (
@@ -252,6 +281,35 @@
             )
         </sql>
         <rollback>DROP TABLE IF EXISTS minicore.transaction_code_balance_effects</rollback>
+    </changeSet>
+
+    <!-- ==================== Foreign keys (deferred) ==================== -->
+
+    <changeSet id="add-outbox-accounts-currency-code-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_accounts
+                ADD CONSTRAINT fk_outbox_accounts_currency_code
+                FOREIGN KEY (currency_code) REFERENCES minicore.currencies(currency_code)
+        </sql>
+        <rollback>ALTER TABLE minicore.outbox_accounts DROP CONSTRAINT IF EXISTS fk_outbox_accounts_currency_code</rollback>
+    </changeSet>
+
+    <changeSet id="add-accounts-currency-code-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.accounts
+                ADD CONSTRAINT fk_accounts_currency_code
+                FOREIGN KEY (currency_code) REFERENCES minicore.currencies(currency_code)
+        </sql>
+        <rollback>ALTER TABLE minicore.accounts DROP CONSTRAINT IF EXISTS fk_accounts_currency_code</rollback>
+    </changeSet>
+
+    <changeSet id="add-transactions-transaction-code-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.transactions
+                ADD CONSTRAINT fk_transactions_transaction_code
+                FOREIGN KEY (transaction_code) REFERENCES minicore.transaction_codes(transaction_code)
+        </sql>
+        <rollback>ALTER TABLE minicore.transactions DROP CONSTRAINT IF EXISTS fk_transactions_transaction_code</rollback>
     </changeSet>
 
 </databaseChangeLog>

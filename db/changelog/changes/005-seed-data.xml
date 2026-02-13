@@ -147,9 +147,9 @@
 
     <!--
         Expected post-seed balances (triggers update accounts automatically):
-        DDA 1000000001: available=7,950.00   collected=17,950.00  (collected includes $10K pending check)
+        DDA 1000000001: available=17,950.00  collected=17,950.00  (PENDING now affects both balances)
         SAV 1000000002: available=24,012.50  collected=24,012.50
-        MMA 1000000003: available=150,062.50 collected=150,062.50 (fee reversed)
+        MMA 1000000003: available=150,062.50 collected=150,062.50 (fee reversal is a POSTED credit)
         HSA 1000000004: available=3,200.00   collected=3,200.00   (no transactions)
         CD  1000000005: available=50,000.00  collected=50,000.00  (no transactions)
     -->
@@ -157,61 +157,61 @@
         <sql>
             -- 1. Payroll direct deposit (DDA +3500 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 'DEP', 3500.00, 'CREDIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 10006, 3500.00, 'CREDIT', 'POSTED',
                     '{"description": "Payroll direct deposit", "source": "ACME Corp"}'::jsonb,
                     CURRENT_DATE - INTERVAL '30 days');
 
             -- 2. ATM withdrawal (DDA -50 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 'WDL', 50.00, 'DEBIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 20007, 50.00, 'DEBIT', 'POSTED',
                     '{"description": "ATM withdrawal", "terminal_id": "ATM-5521"}'::jsonb,
                     CURRENT_DATE - INTERVAL '25 days');
 
             -- 3. Interest credit SAV (+12.50 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1001, 'INT', 12.50, 'CREDIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1001, 10020, 12.50, 'CREDIT', 'POSTED',
                     '{"description": "Monthly interest credit", "rate": "0.50"}'::jsonb,
                     CURRENT_DATE - INTERVAL '15 days');
 
             -- 4. Interest credit MMA (+62.50 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 'INT', 62.50, 'CREDIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 10020, 62.50, 'CREDIT', 'POSTED',
                     '{"description": "Monthly interest credit", "rate": "0.50"}'::jsonb,
                     CURRENT_DATE - INTERVAL '15 days');
 
             -- 5. Monthly maintenance fee MMA (-25 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 'FEE', 25.00, 'DEBIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 30001, 25.00, 'DEBIT', 'POSTED',
                     '{"description": "Monthly maintenance fee"}'::jsonb,
                     CURRENT_DATE - INTERVAL '10 days');
 
             -- 6. Transfer out SAV (-1000 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1001, 'TFR', 1000.00, 'DEBIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1001, 20021, 1000.00, 'DEBIT', 'POSTED',
                     '{"description": "Transfer to DDA", "related_account": "1000000001"}'::jsonb,
                     CURRENT_DATE - INTERVAL '7 days');
 
             -- 7. Transfer in DDA (+1000 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 'TFR', 1000.00, 'CREDIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 10018, 1000.00, 'CREDIT', 'POSTED',
                     '{"description": "Transfer from SAV", "related_account": "1000000002"}'::jsonb,
                     CURRENT_DATE - INTERVAL '7 days');
 
             -- 8. Pending check deposit DDA (+10000 collected only)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 'CHK', 10000.00, 'CREDIT', 'PENDING',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 10002, 10000.00, 'CREDIT', 'PENDING',
                     '{"description": "Check deposit", "check_number": "1042"}'::jsonb,
                     CURRENT_DATE - INTERVAL '3 days');
 
             -- 9. ACH payment DDA (-1500 both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 'ACH', 1500.00, 'DEBIT', 'POSTED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1000, 20012, 1500.00, 'DEBIT', 'POSTED',
                     '{"description": "ACH payment - Electric Co", "originator": "UTIL-8832"}'::jsonb,
                     CURRENT_DATE - INTERVAL '1 day');
 
-            -- 10. Fee reversal MMA (REVERSED DEBIT flips to +25 both)
+            -- 10. Fee reversal MMA (POSTED credit using code 10023 FEE REVERSAL, effect +1 on both)
             INSERT INTO minicore.transactions (transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date)
-            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 'REV', 25.00, 'DEBIT', 'REVERSED',
+            VALUES (nextval('minicore.transactions_transaction_id_seq'), 1002, 10023, 25.00, 'CREDIT', 'POSTED',
                     '{"description": "Fee reversal - courtesy", "original_transaction_id": 100004}'::jsonb,
                     CURRENT_DATE - INTERVAL '1 day')
         </sql>

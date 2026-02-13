@@ -193,8 +193,8 @@
                                     <td>
                                         <table border='0' cellspacing='0' cellpadding='0'>
                                             <tr>
-                                                <td title="outbox_transactions.account_id&#39;s name implies that it&#39;s a child of accounts.account_id, but it doesn&#39;t reference that column."><a href='accounts.html'>accounts</a><span class='relatedKey'>.account_id</span></td>
-                                                <td class="constraint detail">Implied Constraint</td>
+                                                <td title="outbox_transactions.account_id references accounts.account_id via fk_outbox_transactions_account_id"><a href='accounts.html'>accounts</a><span class='relatedKey'>.account_id</span></td>
+                                                <td class="constraint detail">fk_outbox_transactions_account_id</td>
                                                 <td class="constraint detail"><span title='Restrict delete:&#10;Parent cannot be deleted if children exist'>R</span></td>
                                             </tr>
                                         </table>
@@ -232,8 +232,8 @@
                                     <td>
                                         <table border='0' cellspacing='0' cellpadding='0'>
                                             <tr>
-                                                <td title="outbox_transactions.transaction_code&#39;s name implies that it&#39;s a child of transaction_codes.transaction_code, but it doesn&#39;t reference that column."><a href='transaction_codes.html'>transaction_codes</a><span class='relatedKey'>.transaction_code</span></td>
-                                                <td class="constraint detail">Implied Constraint</td>
+                                                <td title="outbox_transactions.transaction_code references transaction_codes.transaction_code via fk_outbox_transactions_transaction_code"><a href='transaction_codes.html'>transaction_codes</a><span class='relatedKey'>.transaction_code</span></td>
+                                                <td class="constraint detail">fk_outbox_transactions_transaction_code</td>
                                                 <td class="constraint detail"><span title='Restrict delete:&#10;Parent cannot be deleted if children exist'>R</span></td>
                                             </tr>
                                         </table>
@@ -430,21 +430,11 @@
                                 <h5>Close relationships within degrees of separation</h5>
                                 <ul class="nav nav-tabs pull-left ui-sortable-handle">
                                     <li class="active"><a href="#oneDegreeImg-chart" data-toggle="tab" aria-expanded="true">One</a></li>
-                                    <li class=""><a href="#oneimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">One implied</a></li>
-                                    <li class=""><a href="#twoimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two implied</a></li>
+                                    <li class=""><a href="#twodegreesDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two degrees</a></li>
                                 </ul>
                                 <div class="tab-content no-padding">
                                     <div class="chart tab-pane active" id="oneDegreeImg-chart" style="position: relative; overflow-x:auto;">
                                         <map id="oneDegreeRelationshipsDiagram" name="oneDegreeRelationshipsDiagram">
-<area shape="rect" id="node1" href="outbox_transactions_bulk.html" target="_top" title="outbox_transactions_bulk" alt="" coords="781,176,1114,381">
-<area shape="rect" id="node2" href="outbox_transactions.html" target="_top" title="outbox_transactions" alt="" coords="5,149,691,629">
-<area shape="rect" id="node3" href="outbox_transactions_confirmations.html" target="_top" title="outbox_transactions_confirmations" alt="" coords="735,5,1160,123">
-<area shape="rect" id="node4" href="outbox_transactions_sync_wait_c_a027f8c3.html" target="_top" title="outbox_transactions_sync_wait_confirmation" alt="" coords="1204,124,1723,271">
-</map>
-                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/outbox_transactions.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="oneimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="oneDegreeRelationshipsDiagramImplied" name="oneDegreeRelationshipsDiagramImplied">
 <area shape="rect" id="node1" href="outbox_transactions.html" target="_top" title="outbox_transactions" alt="" coords="309,102,995,582">
 <area shape="rect" id="node2" href="accounts.html" target="_top" title="accounts" alt="" coords="25,110,246,315">
 <area shape="rect" id="node3" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="5,333,265,450">
@@ -452,10 +442,10 @@
 <area shape="rect" id="node5" href="outbox_transactions_confirmations.html" target="_top" title="outbox_transactions_confirmations" alt="" coords="1039,283,1464,401">
 <area shape="rect" id="node6" href="outbox_transactions_sync_wait_c_a027f8c3.html" target="_top" title="outbox_transactions_sync_wait_confirmation" alt="" coords="1508,9,2027,155">
 </map>
-                                        <a name='diagram'><img id="oneimpliedDegreeImg" src="../diagrams/tables/outbox_transactions.implied1degrees.png" usemap="#oneDegreeRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/outbox_transactions.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
-                                    <div class="chart tab-pane " id="twoimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagramImplied" name="twoDegreesRelationshipsDiagramImplied">
+                                    <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
+                                        <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
 <area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="254,79,475,284">
 <area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,88,191,176">
 <area shape="rect" id="node3" href="outbox_accounts.html" target="_top" title="outbox_accounts" alt="" coords="757,5,1005,93">
@@ -468,7 +458,7 @@
 <area shape="rect" id="node10" href="transactions.html" target="_top" title="transactions" alt="" coords="779,147,984,235">
 <area shape="rect" id="node11" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="676,749,1087,837">
 </map>
-                                        <a name='diagram'><img id="twoimpliedDegreeImg" src="../diagrams/tables/outbox_transactions.implied2degrees.png" usemap="#twoDegreesRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/outbox_transactions.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
                                 </div>
                             </div>

@@ -11,8 +11,8 @@
    <tables>
       <table name="accounts" remarks="" schema="minicore" type="TABLE">
          <column autoUpdated="true" defaultValue="nextval('minicore.accounts_account_id_seq'::regclass)" digits="0" id="0" name="account_id" nullable="false" remarks="" size="19" type="bigserial" typeCode="-5">
-            <child column="account_id" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="outbox_accounts"/>
-            <child column="account_id" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="outbox_transactions"/>
+            <child column="account_id" foreignKey="fk_outbox_accounts_account_id" implied="false" onDeleteCascade="false" schema="minicore" table="outbox_accounts"/>
+            <child column="account_id" foreignKey="fk_outbox_transactions_account_id" implied="false" onDeleteCascade="false" schema="minicore" table="outbox_transactions"/>
             <child column="account_id" foreignKey="transaction_balances_account_id_fkey" implied="false" onDeleteCascade="false" schema="minicore" table="transaction_balances"/>
             <child column="account_id" foreignKey="transactions_account_id_fkey" implied="false" onDeleteCascade="false" schema="minicore" table="transactions"/>
          </column>
@@ -57,7 +57,7 @@
             <column ascending="true" name="currency_code"/>
          </index>
       </table>
-      <table name="databasechangelog" numRows="71" remarks="" schema="minicore" type="TABLE">
+      <table name="databasechangelog" remarks="" schema="minicore" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="id" nullable="false" remarks="" size="255" type="varchar" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="author" nullable="false" remarks="" size="255" type="varchar" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="filename" nullable="false" remarks="" size="255" type="varchar" typeCode="12"/>
@@ -112,7 +112,7 @@
          <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="operation_type" nullable="false" remarks="" size="2147483647" type="&quot;minicore&quot;.&quot;operation_type_enum&quot;" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="snapshot_type" nullable="false" remarks="" size="3" type="varchar" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="account_id" nullable="false" remarks="" size="19" type="int8" typeCode="-5">
-            <parent column="account_id" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="accounts"/>
+            <parent column="account_id" foreignKey="fk_outbox_accounts_account_id" implied="false" onDeleteCascade="false" schema="minicore" table="accounts"/>
          </column>
          <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="account_number" nullable="false" remarks="" size="20" type="varchar" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="product_type" nullable="false" remarks="" size="2147483647" type="&quot;minicore&quot;.&quot;product_type_enum&quot;" typeCode="12"/>
@@ -192,11 +192,11 @@
          <column autoUpdated="false" defaultValue="null" digits="0" id="1" name="operation_type" nullable="false" remarks="" size="2147483647" type="&quot;minicore&quot;.&quot;operation_type_enum&quot;" typeCode="12"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="2" name="transaction_id" nullable="false" remarks="" size="19" type="int8" typeCode="-5"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="3" name="account_id" nullable="false" remarks="" size="19" type="int8" typeCode="-5">
-            <parent column="account_id" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="accounts"/>
+            <parent column="account_id" foreignKey="fk_outbox_transactions_account_id" implied="false" onDeleteCascade="false" schema="minicore" table="accounts"/>
          </column>
          <column autoUpdated="false" defaultValue="null" digits="0" id="4" name="original_transaction_id" nullable="true" remarks="" size="19" type="int8" typeCode="-5"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="5" name="transaction_code" nullable="false" remarks="" size="5" type="numeric" typeCode="2">
-            <parent column="transaction_code" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="transaction_codes"/>
+            <parent column="transaction_code" foreignKey="fk_outbox_transactions_transaction_code" implied="false" onDeleteCascade="false" schema="minicore" table="transaction_codes"/>
          </column>
          <column autoUpdated="false" defaultValue="null" digits="2" id="6" name="amount" nullable="false" remarks="" size="18" type="numeric" typeCode="2"/>
          <column autoUpdated="false" defaultValue="null" digits="0" id="7" name="direction" nullable="false" remarks="" size="2147483647" type="&quot;minicore&quot;.&quot;transaction_direction_enum&quot;" typeCode="12"/>
@@ -288,7 +288,7 @@
             <column ascending="true" name="account_id"/>
          </index>
       </table>
-      <table name="transaction_code_balance_effects" numRows="172" remarks="" schema="minicore" type="TABLE">
+      <table name="transaction_code_balance_effects" remarks="" schema="minicore" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="transaction_code" nullable="false" remarks="" size="5" type="numeric" typeCode="2">
             <parent column="transaction_code" foreignKey="transaction_code_balance_effects_transaction_code_fkey" implied="false" onDeleteCascade="false" schema="minicore" table="transaction_codes"/>
          </column>
@@ -304,9 +304,9 @@
          </index>
          <checkConstraint constraint="((effect = ANY (ARRAY['-1'::integer, 1])))" name="transaction_code_balance_effects_effect_check"/>
       </table>
-      <table name="transaction_codes" numRows="86" remarks="" schema="minicore" type="TABLE">
+      <table name="transaction_codes" remarks="" schema="minicore" type="TABLE">
          <column autoUpdated="false" defaultValue="null" digits="0" id="0" name="transaction_code" nullable="false" remarks="" size="5" type="numeric" typeCode="2">
-            <child column="transaction_code" foreignKey="Implied Constraint" implied="true" onDeleteCascade="false" schema="minicore" table="outbox_transactions"/>
+            <child column="transaction_code" foreignKey="fk_outbox_transactions_transaction_code" implied="false" onDeleteCascade="false" schema="minicore" table="outbox_transactions"/>
             <child column="transaction_code" foreignKey="transaction_code_balance_effects_transaction_code_fkey" implied="false" onDeleteCascade="false" schema="minicore" table="transaction_code_balance_effects"/>
             <child column="transaction_code" foreignKey="fk_transactions_transaction_code" implied="false" onDeleteCascade="false" schema="minicore" table="transactions"/>
          </column>

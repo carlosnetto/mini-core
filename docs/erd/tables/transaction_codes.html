@@ -73,7 +73,7 @@
             <div class="content-wrapper">
                 <!-- Content Header (Page header) -->
                 <section class="content-header">
-                    <h1>transaction_codes</h1><p><span id="recordNumber">86</span> rows</p><br />
+                    <h1>transaction_codes</h1><p><span id="recordNumber">-1</span> rows</p><br />
                 </section>
                 <!-- Main content -->
                 <section class="content">
@@ -118,8 +118,8 @@
                                     <td>
                                         <table border='0' cellspacing='0' cellpadding='0'>
                                             <tr>
-                                                <td title="outbox_transactions.transaction_code&#39;s name implies that it&#39;s a child of transaction_codes.transaction_code, but it doesn&#39;t reference that column."><a href='outbox_transactions.html'>outbox_transactions</a><span class='relatedKey'>.transaction_code</span></td>
-                                                <td class="constraint detail">Implied Constraint</td>
+                                                <td title="outbox_transactions.transaction_code references transaction_codes.transaction_code via fk_outbox_transactions_transaction_code"><a href='outbox_transactions.html'>outbox_transactions</a><span class='relatedKey'>.transaction_code</span></td>
+                                                <td class="constraint detail">fk_outbox_transactions_transaction_code</td>
                                                 <td class="constraint detail"><span title='Restrict delete:&#10;Parent cannot be deleted if children exist'>R</span></td>
                                             </tr>
                                             <tr>
@@ -212,41 +212,19 @@
                                 <ul class="nav nav-tabs pull-left ui-sortable-handle">
                                     <li class="active"><a href="#oneDegreeImg-chart" data-toggle="tab" aria-expanded="true">One</a></li>
                                     <li class=""><a href="#twodegreesDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two degrees</a></li>
-                                    <li class=""><a href="#oneimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">One implied</a></li>
-                                    <li class=""><a href="#twoimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two implied</a></li>
                                 </ul>
                                 <div class="tab-content no-padding">
                                     <div class="chart tab-pane active" id="oneDegreeImg-chart" style="position: relative; overflow-x:auto;">
                                         <map id="oneDegreeRelationshipsDiagram" name="oneDegreeRelationshipsDiagram">
-<area shape="rect" id="node1" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="384,5,795,152">
-<area shape="rect" id="node2" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="5,129,340,257">
-<area shape="rect" id="node3" href="transactions.html" target="_top" title="transactions" alt="" coords="454,169,725,463">
-</map>
-                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/transaction_codes.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
-<area shape="rect" id="node1" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="839,111,1173,199">
-<area shape="rect" id="node2" href="transactions.html" target="_top" title="transactions" alt="" coords="454,79,725,372">
-<area shape="rect" id="node4" href="accounts.html" target="_top" title="accounts" alt="" coords="87,59,258,147">
-<area shape="rect" id="node7" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="5,247,340,375">
-<area shape="rect" id="node3" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="861,5,1151,93">
-<area shape="rect" id="node5" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="384,389,795,536">
-<area shape="rect" id="node6" href="balances.html" target="_top" title="balances" alt="" coords="88,421,257,509">
-</map>
-                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/transaction_codes.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="oneimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="oneDegreeRelationshipsDiagramImplied" name="oneDegreeRelationshipsDiagramImplied">
 <area shape="rect" id="node1" href="outbox_transactions.html" target="_top" title="outbox_transactions" alt="" coords="449,5,730,181">
 <area shape="rect" id="node2" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="5,196,340,324">
 <area shape="rect" id="node3" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="384,199,795,345">
 <area shape="rect" id="node4" href="transactions.html" target="_top" title="transactions" alt="" coords="454,363,725,656">
 </map>
-                                        <a name='diagram'><img id="oneimpliedDegreeImg" src="../diagrams/tables/transaction_codes.implied1degrees.png" usemap="#oneDegreeRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/transaction_codes.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
-                                    <div class="chart tab-pane " id="twoimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagramImplied" name="twoDegreesRelationshipsDiagramImplied">
+                                    <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
+                                        <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
 <area shape="rect" id="node1" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="884,111,1219,199">
 <area shape="rect" id="node2" href="transactions.html" target="_top" title="transactions" alt="" coords="454,79,725,372">
 <area shape="rect" id="node4" href="accounts.html" target="_top" title="accounts" alt="" coords="87,111,258,199">
@@ -259,7 +237,7 @@
 <area shape="rect" id="node10" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="384,583,795,729">
 <area shape="rect" id="node11" href="balances.html" target="_top" title="balances" alt="" coords="88,615,257,703">
 </map>
-                                        <a name='diagram'><img id="twoimpliedDegreeImg" src="../diagrams/tables/transaction_codes.implied2degrees.png" usemap="#twoDegreesRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/transaction_codes.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
                                 </div>
                             </div>

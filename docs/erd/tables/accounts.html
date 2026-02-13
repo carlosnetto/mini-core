@@ -118,13 +118,13 @@
                                     <td>
                                         <table border='0' cellspacing='0' cellpadding='0'>
                                             <tr>
-                                                <td title="outbox_accounts.account_id&#39;s name implies that it&#39;s a child of accounts.account_id, but it doesn&#39;t reference that column."><a href='outbox_accounts.html'>outbox_accounts</a><span class='relatedKey'>.account_id</span></td>
-                                                <td class="constraint detail">Implied Constraint</td>
+                                                <td title="outbox_accounts.account_id references accounts.account_id via fk_outbox_accounts_account_id"><a href='outbox_accounts.html'>outbox_accounts</a><span class='relatedKey'>.account_id</span></td>
+                                                <td class="constraint detail">fk_outbox_accounts_account_id</td>
                                                 <td class="constraint detail"><span title='Restrict delete:&#10;Parent cannot be deleted if children exist'>R</span></td>
                                             </tr>
                                             <tr>
-                                                <td title="outbox_transactions.account_id&#39;s name implies that it&#39;s a child of accounts.account_id, but it doesn&#39;t reference that column."><a href='outbox_transactions.html'>outbox_transactions</a><span class='relatedKey'>.account_id</span></td>
-                                                <td class="constraint detail">Implied Constraint</td>
+                                                <td title="outbox_transactions.account_id references accounts.account_id via fk_outbox_transactions_account_id"><a href='outbox_transactions.html'>outbox_transactions</a><span class='relatedKey'>.account_id</span></td>
+                                                <td class="constraint detail">fk_outbox_transactions_account_id</td>
                                                 <td class="constraint detail"><span title='Restrict delete:&#10;Parent cannot be deleted if children exist'>R</span></td>
                                             </tr>
                                             <tr>
@@ -370,33 +370,10 @@
                                 <ul class="nav nav-tabs pull-left ui-sortable-handle">
                                     <li class="active"><a href="#oneDegreeImg-chart" data-toggle="tab" aria-expanded="true">One</a></li>
                                     <li class=""><a href="#twodegreesDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two degrees</a></li>
-                                    <li class=""><a href="#oneimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">One implied</a></li>
-                                    <li class=""><a href="#twoimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two implied</a></li>
                                 </ul>
                                 <div class="tab-content no-padding">
                                     <div class="chart tab-pane active" id="oneDegreeImg-chart" style="position: relative; overflow-x:auto;">
                                         <map id="oneDegreeRelationshipsDiagram" name="oneDegreeRelationshipsDiagram">
-<area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="239,152,831,515">
-<area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,331,195,424">
-<area shape="rect" id="node3" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1189,127,1480,273">
-<area shape="rect" id="node4" href="transactions.html" target="_top" title="transactions" alt="" coords="875,5,1145,299">
-</map>
-                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/accounts.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
-<area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="239,216,831,579">
-<area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,199,195,292">
-<area shape="rect" id="node3" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="1124,119,1459,207">
-<area shape="rect" id="node4" href="transactions.html" target="_top" title="transactions" alt="" coords="875,137,1080,225">
-<area shape="rect" id="node7" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="405,111,665,199">
-<area shape="rect" id="node5" href="outbox_accounts.html" target="_top" title="outbox_accounts" alt="" coords="411,5,659,93">
-<area shape="rect" id="node6" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1146,224,1437,312">
-</map>
-                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/accounts.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="oneimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="oneDegreeRelationshipsDiagramImplied" name="oneDegreeRelationshipsDiagramImplied">
 <area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="239,264,831,627">
 <area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,524,195,617">
 <area shape="rect" id="node3" href="outbox_accounts.html" target="_top" title="outbox_accounts" alt="" coords="891,545,1139,721">
@@ -404,10 +381,10 @@
 <area shape="rect" id="node5" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1200,320,1491,467">
 <area shape="rect" id="node6" href="transactions.html" target="_top" title="transactions" alt="" coords="880,199,1151,492">
 </map>
-                                        <a name='diagram'><img id="oneimpliedDegreeImg" src="../diagrams/tables/accounts.implied1degrees.png" usemap="#oneDegreeRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="oneDegreeImg" src="../diagrams/tables/accounts.1degree.png" usemap="#oneDegreeRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
-                                    <div class="chart tab-pane " id="twoimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagramImplied" name="twoDegreesRelationshipsDiagramImplied">
+                                    <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
+                                        <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
 <area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="235,209,827,572">
 <area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,255,191,343">
 <area shape="rect" id="node3" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="1241,357,1576,445">
@@ -423,7 +400,7 @@
 <area shape="rect" id="node13" href="outbox_transactions_sync_wait_c_a027f8c3.html" target="_top" title="outbox_transactions_sync_wait_confirmation" alt="" coords="1665,567,2184,655">
 <area shape="rect" id="node14" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1263,252,1554,340">
 </map>
-                                        <a name='diagram'><img id="twoimpliedDegreeImg" src="../diagrams/tables/accounts.implied2degrees.png" usemap="#twoDegreesRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/accounts.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
                                 </div>
                             </div>

@@ -141,7 +141,7 @@ Populated automatically by a trigger on `accounts`. On INSERT, writes one POS ro
 | `event_id` | BIGSERIAL PK | Monotonically increasing, used for bulk ranges |
 | `operation_type` | operation_type_enum | INSERT or UPDATE |
 | `snapshot_type` | VARCHAR(3) | PRE or POS (CHECK constraint) |
-| `account_id` | BIGINT | Mirrored from `accounts` |
+| `account_id` | BIGINT | Mirrored from `accounts`. FK to `accounts` |
 | `account_number` | VARCHAR(20) | Mirrored |
 | `product_type` | product_type_enum | Mirrored |
 | `status` | account_status_enum | Mirrored |
@@ -162,9 +162,9 @@ Populated automatically by a trigger on `transactions` (AFTER INSERT only — tr
 | `event_id` | BIGSERIAL PK | Monotonically increasing |
 | `operation_type` | operation_type_enum | Always INSERT |
 | `transaction_id` | BIGINT | Mirrored from `transactions` |
-| `account_id` | BIGINT | Mirrored |
+| `account_id` | BIGINT | Mirrored. FK to `accounts` |
 | `original_transaction_id` | BIGINT | Mirrored (NULL for born transactions) |
-| `transaction_code` | NUMERIC(5) | Mirrored |
+| `transaction_code` | NUMERIC(5) | Mirrored. FK to `transaction_codes` |
 | `amount` | NUMERIC(18,2) | Mirrored |
 | `direction` | transaction_direction_enum | Mirrored |
 | `status` | transaction_status_enum | Mirrored |

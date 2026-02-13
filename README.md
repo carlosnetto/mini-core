@@ -147,7 +147,7 @@ db/
     db.changelog-master.xml
     changes/
       001-create-types.xml                  # 7 enums
-      002-create-tables.xml                 # 19 tables & sequences
+      002-create-tables.xml                 # 25 changesets: tables, sequences & FKs
       003-create-indexes.xml                # 13 indexes
       004-create-functions-and-triggers.xml # 20 functions & triggers
       005-seed-data.xml                     # Reference + test data

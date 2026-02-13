@@ -420,12 +420,12 @@
                                 </thead>
                                 <tbody>
                                 <tr>
-                                    <td>chk_transaction_lifecycle</td>
-                                    <td>((((original_transaction_id IS NULL) AND (status &#61; ANY (ARRAY[&#39;PENDING&#39;::minicore.transaction_status_enum, &#39;POSTED&#39;::minicore.transaction_status_enum]))) OR ((original_transaction_id IS NOT NULL) AND (status &#61; ANY (ARRAY[&#39;POSTED&#39;::minicore.transaction_status_enum, &#39;CANCELLED&#39;::minicore.transaction_status_enum])))))</td>
-                                </tr>
-                                <tr>
                                     <td>chk_amount_positive</td>
                                     <td>((amount &gt; (0)::numeric))</td>
+                                </tr>
+                                <tr>
+                                    <td>chk_transaction_lifecycle</td>
+                                    <td>((((original_transaction_id IS NULL) AND (status &#61; ANY (ARRAY[&#39;PENDING&#39;::minicore.transaction_status_enum, &#39;POSTED&#39;::minicore.transaction_status_enum]))) OR ((original_transaction_id IS NOT NULL) AND (status &#61; ANY (ARRAY[&#39;POSTED&#39;::minicore.transaction_status_enum, &#39;CANCELLED&#39;::minicore.transaction_status_enum])))))</td>
                                 </tr>
                                 </tbody>
                             </table>
@@ -446,8 +446,6 @@
                                 <ul class="nav nav-tabs pull-left ui-sortable-handle">
                                     <li class="active"><a href="#oneDegreeImg-chart" data-toggle="tab" aria-expanded="true">One</a></li>
                                     <li class=""><a href="#twodegreesDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two degrees</a></li>
-                                    <li class=""><a href="#oneimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">One implied</a></li>
-                                    <li class=""><a href="#twoimpliedDegreeImg-chart" data-toggle="tab" aria-expanded="true">Two implied</a></li>
                                 </ul>
                                 <div class="tab-content no-padding">
                                     <div class="chart tab-pane active" id="oneDegreeImg-chart" style="position: relative; overflow-x:auto;">
@@ -462,28 +460,6 @@
                                     </div>
                                     <div class="chart tab-pane " id="twodegreesDegreeImg-chart" style="position: relative; overflow-x:auto;">
                                         <map id="twoDegreesRelationshipsDiagram" name="twoDegreesRelationshipsDiagram">
-<area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="279,72,450,160">
-<area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,69,191,157">
-<area shape="rect" id="node3" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="1268,111,1603,287">
-<area shape="rect" id="node4" href="transactions.html" target="_top" title="transactions" alt="" coords="539,100,1224,492">
-<area shape="rect" id="node7" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="235,349,495,467">
-<area shape="rect" id="node5" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1290,5,1581,93">
-<area shape="rect" id="node6" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="676,509,1087,597">
-</map>
-                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/transactions.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="oneimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="oneDegreeRelationshipsDiagramImplied" name="oneDegreeRelationshipsDiagramImplied">
-<area shape="rect" id="node1" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="1039,169,1373,345">
-<area shape="rect" id="node2" href="transactions.html" target="_top" title="transactions" alt="" coords="309,151,995,543">
-<area shape="rect" id="node4" href="accounts.html" target="_top" title="accounts" alt="" coords="25,35,246,240">
-<area shape="rect" id="node5" href="transaction_codes.html" target="_top" title="transaction_codes" alt="" coords="5,257,265,375">
-<area shape="rect" id="node3" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1061,5,1351,152">
-</map>
-                                        <a name='diagram'><img id="oneimpliedDegreeImg" src="../diagrams/tables/transactions.implied1degrees.png" usemap="#oneDegreeRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
-                                    </div>
-                                    <div class="chart tab-pane " id="twoimpliedDegreeImg-chart" style="position: relative; overflow-x:auto;">
-                                        <map id="twoDegreesRelationshipsDiagramImplied" name="twoDegreesRelationshipsDiagramImplied">
 <area shape="rect" id="node1" href="accounts.html" target="_top" title="accounts" alt="" coords="279,79,450,167">
 <area shape="rect" id="node2" href="currencies.html" target="_top" title="currencies" alt="" coords="5,41,191,129">
 <area shape="rect" id="node3" href="dtw_transaction_mapping.html" target="_top" title="dtw_transaction_mapping" alt="" coords="1268,279,1603,455">
@@ -494,7 +470,7 @@
 <area shape="rect" id="node8" href="transaction_balances.html" target="_top" title="transaction_balances" alt="" coords="1290,125,1581,213">
 <area shape="rect" id="node9" href="transaction_code_balance_effects.html" target="_top" title="transaction_code_balance_effects" alt="" coords="676,685,1087,773">
 </map>
-                                        <a name='diagram'><img id="twoimpliedDegreeImg" src="../diagrams/tables/transactions.implied2degrees.png" usemap="#twoDegreesRelationshipsDiagramImplied" class="diagram" border="0" align="left"></a>
+                                        <a name='diagram'><img id="twodegreesDegreeImg" src="../diagrams/tables/transactions.2degrees.png" usemap="#twoDegreesRelationshipsDiagram" class="diagram" border="0" align="left"></a>
                                     </div>
                                 </div>
                             </div>

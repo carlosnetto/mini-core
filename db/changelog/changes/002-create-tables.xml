@@ -312,4 +312,31 @@
         <rollback>ALTER TABLE minicore.transactions DROP CONSTRAINT IF EXISTS fk_transactions_transaction_code</rollback>
     </changeSet>
 
+    <changeSet id="add-outbox-accounts-account-id-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_accounts
+                ADD CONSTRAINT fk_outbox_accounts_account_id
+                FOREIGN KEY (account_id) REFERENCES minicore.accounts(account_id)
+        </sql>
+        <rollback>ALTER TABLE minicore.outbox_accounts DROP CONSTRAINT IF EXISTS fk_outbox_accounts_account_id</rollback>
+    </changeSet>
+
+    <changeSet id="add-outbox-transactions-account-id-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_transactions
+                ADD CONSTRAINT fk_outbox_transactions_account_id
+                FOREIGN KEY (account_id) REFERENCES minicore.accounts(account_id)
+        </sql>
+        <rollback>ALTER TABLE minicore.outbox_transactions DROP CONSTRAINT IF EXISTS fk_outbox_transactions_account_id</rollback>
+    </changeSet>
+
+    <changeSet id="add-outbox-transactions-transaction-code-fk" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_transactions
+                ADD CONSTRAINT fk_outbox_transactions_transaction_code
+                FOREIGN KEY (transaction_code) REFERENCES minicore.transaction_codes(transaction_code)
+        </sql>
+        <rollback>ALTER TABLE minicore.outbox_transactions DROP CONSTRAINT IF EXISTS fk_outbox_transactions_transaction_code</rollback>
+    </changeSet>
+
 </databaseChangeLog>

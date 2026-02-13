@@ -24,14 +24,14 @@ db/
     db.changelog-master.xml   # Includes the 6 change files in order
     changes/
       001-create-types.xml            #  7 changesets — enums
-      002-create-tables.xml           # 22 changesets — sequences, all tables, deferred FKs
+      002-create-tables.xml           # 25 changesets — sequences, all tables, deferred FKs
       003-create-indexes.xml          # 13 changesets — all indexes
       004-create-functions-and-triggers.xml  # 20 changesets — all PL/pgSQL functions + triggers
       005-seed-data.xml               #  5 changesets — reference data (always) + test data (context=seed)
       006-remove-processed-column.xml  #  4 changesets — drops processed column and its indexes from outbox tables
 ```
 
-**Total: 71 changesets across 6 files.**
+**Total: 74 changesets across 6 files.**
 
 ## Running
 

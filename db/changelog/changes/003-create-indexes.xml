@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="idx-transactions-account-id" author="mini-core">
+        <sql>CREATE INDEX idx_transactions_account_id ON minicore.transactions (account_id)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_transactions_account_id</rollback>
+    </changeSet>
+
+    <changeSet id="idx-transactions-account-effective-date" author="mini-core">
+        <sql>CREATE INDEX idx_transactions_account_effective_date ON minicore.transactions (account_id, effective_date DESC)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_transactions_account_effective_date</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-accounts-unprocessed" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_accounts_unprocessed ON minicore.outbox_accounts (event_id) WHERE processed = false</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_accounts_unprocessed</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-transactions-unprocessed" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_transactions_unprocessed ON minicore.outbox_transactions (event_id) WHERE processed = false</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_transactions_unprocessed</rollback>
+    </changeSet>
+
+    <changeSet id="idx-dtw-mapping-sync-status" author="mini-core">
+        <sql>CREATE INDEX idx_dtw_mapping_sync_status ON minicore.dtw_transaction_mapping (sync_status)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_dtw_mapping_sync_status</rollback>
+    </changeSet>
+
+    <changeSet id="idx-transactions-status" author="mini-core">
+        <sql>CREATE INDEX idx_transactions_status ON minicore.transactions (status)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_transactions_status</rollback>
+    </changeSet>
+
+    <changeSet id="idx-accounts-status" author="mini-core">
+        <sql>CREATE INDEX idx_accounts_status ON minicore.accounts (status)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_accounts_status</rollback>
+    </changeSet>
+
+    <changeSet id="idx-transactions-json-payload" author="mini-core">
+        <sql>CREATE INDEX idx_transactions_json_payload ON minicore.transactions USING GIN (json_payload jsonb_path_ops)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_transactions_json_payload</rollback>
+    </changeSet>
+
+    <changeSet id="idx-transaction-balances-account-id" author="mini-core">
+        <sql>CREATE INDEX idx_transaction_balances_account_id ON minicore.transaction_balances (account_id)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_transaction_balances_account_id</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-accounts-sync-bulk-id" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_accounts_sync_wait_confirmation_bulk_id ON minicore.outbox_accounts_sync_wait_confirmation (bulk_id)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_accounts_sync_wait_confirmation_bulk_id</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-transactions-sync-bulk-id" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_transactions_sync_wait_confirmation_bulk_id ON minicore.outbox_transactions_sync_wait_confirmation (bulk_id)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_transactions_sync_wait_confirmation_bulk_id</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-accounts-bulk-status" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_accounts_bulk_status ON minicore.outbox_accounts_bulk (status)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_accounts_bulk_status</rollback>
+    </changeSet>
+
+    <changeSet id="idx-outbox-transactions-bulk-status" author="mini-core">
+        <sql>CREATE INDEX idx_outbox_transactions_bulk_status ON minicore.outbox_transactions_bulk (status)</sql>
+        <rollback>DROP INDEX IF EXISTS minicore.idx_outbox_transactions_bulk_status</rollback>
+    </changeSet>
+
+</databaseChangeLog>

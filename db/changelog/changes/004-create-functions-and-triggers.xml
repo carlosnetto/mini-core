@@ -1,0 +1,275 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ==================== Balance update ==================== -->
+
+    <changeSet id="fn-update-account-balance" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_update_account_balance()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_amount    NUMERIC(18,2);
+                v_available NUMERIC(18,2);
+                v_collected NUMERIC(18,2);
+            BEGIN
+                -- Determine signed amount based on direction
+                IF NEW.direction = 'CREDIT' THEN
+                    v_amount := NEW.amount;
+                ELSE
+                    v_amount := -NEW.amount;
+                END IF;
+
+                -- REVERSED flips the sign
+                IF NEW.status = 'REVERSED' THEN
+                    v_amount := -v_amount;
+                END IF;
+
+                -- Apply to balances based on status and capture resulting balances
+                IF NEW.status = 'PENDING' THEN
+                    UPDATE minicore.accounts
+                    SET collected_balance = collected_balance + v_amount,
+                        updated_at = NOW()
+                    WHERE account_id = NEW.account_id
+                    RETURNING available_balance, collected_balance
+                    INTO v_available, v_collected;
+                ELSE
+                    UPDATE minicore.accounts
+                    SET available_balance = available_balance + v_amount,
+                        collected_balance = collected_balance + v_amount,
+                        updated_at = NOW()
+                    WHERE account_id = NEW.account_id
+                    RETURNING available_balance, collected_balance
+                    INTO v_available, v_collected;
+                END IF;
+
+                -- Record the post-transaction balance snapshot
+                INSERT INTO minicore.transaction_balances (transaction_id, account_id, available_balance, collected_balance)
+                VALUES (NEW.transaction_id, NEW.account_id, v_available, v_collected);
+
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_update_account_balance()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-update-account-balance" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_update_account_balance
+            AFTER INSERT ON minicore.transactions
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_update_account_balance()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_update_account_balance ON minicore.transactions</rollback>
+    </changeSet>
+
+    <!-- ==================== Account outbox ==================== -->
+
+    <changeSet id="fn-outbox-accounts" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_outbox_accounts()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF TG_OP = 'UPDATE' THEN
+                    -- Pre-update snapshot
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                    VALUES
+                        ('UPDATE', 'PRE', OLD.account_id, OLD.account_number, OLD.product_type, OLD.status, OLD.available_balance, OLD.collected_balance, OLD.currency_code, OLD.created_at, OLD.updated_at);
+                    -- Post-update snapshot
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                    VALUES
+                        ('UPDATE', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_at, NEW.updated_at);
+                ELSE
+                    -- INSERT: only post snapshot (no prior state)
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, account_created_at, account_updated_at)
+                    VALUES
+                        ('INSERT', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_at, NEW.updated_at);
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_outbox_accounts()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-outbox-accounts" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_outbox_accounts
+            AFTER INSERT OR UPDATE ON minicore.accounts
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_outbox_accounts()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_outbox_accounts ON minicore.accounts</rollback>
+    </changeSet>
+
+    <!-- ==================== Transaction outbox ==================== -->
+
+    <changeSet id="fn-outbox-transactions" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_outbox_transactions()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                INSERT INTO minicore.outbox_transactions
+                    (operation_type, transaction_id, account_id, transaction_code, amount, direction, status, json_payload, effective_date, transaction_created_at)
+                VALUES
+                    ('INSERT', NEW.transaction_id, NEW.account_id, NEW.transaction_code, NEW.amount, NEW.direction, NEW.status, NEW.json_payload, NEW.effective_date, NEW.created_at);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_outbox_transactions()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-outbox-transactions" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_outbox_transactions
+            AFTER INSERT ON minicore.transactions
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_outbox_transactions()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_outbox_transactions ON minicore.transactions</rollback>
+    </changeSet>
+
+    <!-- ==================== Bulk sync auto-populate ==================== -->
+
+    <changeSet id="fn-populate-accounts-sync" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_populate_accounts_sync_wait_confirmation()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                INSERT INTO minicore.outbox_accounts_sync_wait_confirmation (event_id, bulk_id)
+                SELECT event_id, NEW.bulk_id
+                FROM minicore.outbox_accounts
+                WHERE event_id BETWEEN NEW.first_event_id AND NEW.last_event_id;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_populate_accounts_sync_wait_confirmation()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-populate-accounts-sync" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_populate_accounts_sync_wait_confirmation
+            AFTER INSERT ON minicore.outbox_accounts_bulk
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_populate_accounts_sync_wait_confirmation()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_populate_accounts_sync_wait_confirmation ON minicore.outbox_accounts_bulk</rollback>
+    </changeSet>
+
+    <changeSet id="fn-populate-transactions-sync" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_populate_transactions_sync_wait_confirmation()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                INSERT INTO minicore.outbox_transactions_sync_wait_confirmation (event_id, bulk_id)
+                SELECT event_id, NEW.bulk_id
+                FROM minicore.outbox_transactions
+                WHERE event_id BETWEEN NEW.first_event_id AND NEW.last_event_id;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_populate_transactions_sync_wait_confirmation()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-populate-transactions-sync" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_populate_transactions_sync_wait_confirmation
+            AFTER INSERT ON minicore.outbox_transactions_bulk
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_populate_transactions_sync_wait_confirmation()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_populate_transactions_sync_wait_confirmation ON minicore.outbox_transactions_bulk</rollback>
+    </changeSet>
+
+    <!-- ==================== Confirmation auto-cleanup ==================== -->
+
+    <changeSet id="fn-cleanup-accounts-sync" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_cleanup_accounts_sync_wait_confirmation()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                DELETE FROM minicore.outbox_accounts_sync_wait_confirmation
+                WHERE event_id = NEW.event_id;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_cleanup_accounts_sync_wait_confirmation()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-cleanup-accounts-sync" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_cleanup_accounts_sync_wait_confirmation
+            AFTER INSERT ON minicore.outbox_accounts_confirmations
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_cleanup_accounts_sync_wait_confirmation()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_cleanup_accounts_sync_wait_confirmation ON minicore.outbox_accounts_confirmations</rollback>
+    </changeSet>
+
+    <changeSet id="fn-cleanup-transactions-sync" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_cleanup_transactions_sync_wait_confirmation()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                DELETE FROM minicore.outbox_transactions_sync_wait_confirmation
+                WHERE event_id = NEW.event_id;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_cleanup_transactions_sync_wait_confirmation()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-cleanup-transactions-sync" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_cleanup_transactions_sync_wait_confirmation
+            AFTER INSERT ON minicore.outbox_transactions_confirmations
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_cleanup_transactions_sync_wait_confirmation()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_cleanup_transactions_sync_wait_confirmation ON minicore.outbox_transactions_confirmations</rollback>
+    </changeSet>
+
+    <!-- ==================== Balance effect consistency ==================== -->
+
+    <changeSet id="fn-check-effect-consistency" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_check_effect_consistency()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF EXISTS (
+                    SELECT 1 FROM minicore.transaction_code_balance_effects
+                    WHERE transaction_code = NEW.transaction_code
+                      AND effect != NEW.effect
+                ) THEN
+                    RAISE EXCEPTION 'Transaction code % cannot have opposite signs for different balances', NEW.transaction_code;
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>DROP FUNCTION IF EXISTS minicore.fn_check_effect_consistency()</rollback>
+    </changeSet>
+
+    <changeSet id="trg-check-effect-consistency" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_check_effect_consistency
+            BEFORE INSERT OR UPDATE ON minicore.transaction_code_balance_effects
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_check_effect_consistency()
+        </sql>
+        <rollback>DROP TRIGGER IF EXISTS trg_check_effect_consistency ON minicore.transaction_code_balance_effects</rollback>
+    </changeSet>
+
+</databaseChangeLog>

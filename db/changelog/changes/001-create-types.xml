@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="create-product-type-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.product_type_enum AS ENUM ('DDA', 'SAV', 'MMA', 'HSA', 'CD')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.product_type_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-account-status-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.account_status_enum AS ENUM ('ACTIVE', 'DORMANT', 'FROZEN', 'CLOSED')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.account_status_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-transaction-direction-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.transaction_direction_enum AS ENUM ('DEBIT', 'CREDIT')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.transaction_direction_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-transaction-status-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.transaction_status_enum AS ENUM ('PENDING', 'POSTED', 'REVERSED')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.transaction_status_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-operation-type-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.operation_type_enum AS ENUM ('INSERT', 'UPDATE')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.operation_type_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-sync-status-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.sync_status_enum AS ENUM ('PENDING', 'SYNCED', 'FAILED', 'RECONCILED')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.sync_status_enum</rollback>
+    </changeSet>
+
+    <changeSet id="create-bulk-status-enum" author="mini-core">
+        <sql>CREATE TYPE minicore.bulk_status_enum AS ENUM ('CREATED', 'SENDING', 'SENT')</sql>
+        <rollback>DROP TYPE IF EXISTS minicore.bulk_status_enum</rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- ==================== Sequences ==================== -->
+
+    <changeSet id="create-accounts-sequence" author="mini-core">
+        <sql>CREATE SEQUENCE minicore.accounts_account_id_seq START WITH 1000</sql>
+        <rollback>DROP SEQUENCE IF EXISTS minicore.accounts_account_id_seq</rollback>
+    </changeSet>
+
+    <changeSet id="create-transactions-sequence" author="mini-core">
+        <sql>CREATE SEQUENCE minicore.transactions_transaction_id_seq START WITH 100000</sql>
+        <rollback>DROP SEQUENCE IF EXISTS minicore.transactions_transaction_id_seq</rollback>
+    </changeSet>
+
+    <!-- ==================== Core tables ==================== -->
+
+    <changeSet id="create-accounts-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.accounts (
+                account_id        BIGINT          PRIMARY KEY DEFAULT nextval('minicore.accounts_account_id_seq'),
+                account_number    VARCHAR(20)     NOT NULL UNIQUE,
+                product_type      minicore.product_type_enum    NOT NULL,
+                status            minicore.account_status_enum  NOT NULL DEFAULT 'ACTIVE',
+                available_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
+                collected_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
+                currency_code     VARCHAR(3)      NOT NULL DEFAULT 'USD',
+                created_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+                updated_at        TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.accounts</rollback>
+    </changeSet>
+
+    <changeSet id="create-transactions-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.transactions (
+                transaction_id   BIGINT          PRIMARY KEY DEFAULT nextval('minicore.transactions_transaction_id_seq'),
+                account_id       BIGINT          NOT NULL REFERENCES minicore.accounts(account_id),
+                transaction_code VARCHAR(10)     NOT NULL,
+                amount           NUMERIC(18,2)   NOT NULL,
+                direction        minicore.transaction_direction_enum NOT NULL,
+                status           minicore.transaction_status_enum    NOT NULL DEFAULT 'PENDING',
+                json_payload     JSONB,
+                effective_date   DATE            NOT NULL DEFAULT CURRENT_DATE,
+                created_at       TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
+                CONSTRAINT chk_transaction_code CHECK (transaction_code IN ('DEP','WDL','TFR','FEE','INT','ADJ','PMT','REV','CHK','ACH','WIR')),
+                CONSTRAINT chk_amount_positive  CHECK (amount > 0)
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.transactions</rollback>
+    </changeSet>
+
+    <changeSet id="create-transaction-balances-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.transaction_balances (
+                transaction_id    BIGINT        PRIMARY KEY REFERENCES minicore.transactions(transaction_id),
+                account_id        BIGINT        NOT NULL REFERENCES minicore.accounts(account_id),
+                available_balance NUMERIC(18,2) NOT NULL,
+                collected_balance NUMERIC(18,2) NOT NULL,
+                created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.transaction_balances</rollback>
+    </changeSet>
+
+    <!-- ==================== Outbox tables ==================== -->
+
+    <changeSet id="create-outbox-accounts-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_accounts (
+                event_id           BIGSERIAL       PRIMARY KEY,
+                operation_type     minicore.operation_type_enum NOT NULL,
+                snapshot_type      VARCHAR(3)      NOT NULL CHECK (snapshot_type IN ('PRE', 'POS')),
+                account_id         BIGINT          NOT NULL,
+                account_number     VARCHAR(20)     NOT NULL,
+                product_type       minicore.product_type_enum   NOT NULL,
+                status             minicore.account_status_enum NOT NULL,
+                available_balance  NUMERIC(18,2)   NOT NULL,
+                collected_balance  NUMERIC(18,2)   NOT NULL,
+                currency_code      VARCHAR(3)      NOT NULL,
+                account_created_at TIMESTAMPTZ     NOT NULL,
+                account_updated_at TIMESTAMPTZ     NOT NULL,
+                processed          BOOLEAN         NOT NULL DEFAULT FALSE,
+                created_at         TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_accounts</rollback>
+    </changeSet>
+
+    <changeSet id="create-outbox-transactions-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_transactions (
+                event_id               BIGSERIAL       PRIMARY KEY,
+                operation_type         minicore.operation_type_enum NOT NULL,
+                transaction_id         BIGINT          NOT NULL,
+                account_id             BIGINT          NOT NULL,
+                transaction_code       VARCHAR(10)     NOT NULL,
+                amount                 NUMERIC(18,2)   NOT NULL,
+                direction              minicore.transaction_direction_enum NOT NULL,
+                status                 minicore.transaction_status_enum    NOT NULL,
+                json_payload           JSONB,
+                effective_date         DATE            NOT NULL,
+                transaction_created_at TIMESTAMPTZ     NOT NULL,
+                processed              BOOLEAN         NOT NULL DEFAULT FALSE,
+                created_at             TIMESTAMPTZ     NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_transactions</rollback>
+    </changeSet>
+
+    <!-- ==================== Outbox bulk & confirmation tables ==================== -->
+
+    <changeSet id="create-outbox-accounts-bulk-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_accounts_bulk (
+                bulk_id        BIGSERIAL          PRIMARY KEY,
+                first_event_id BIGINT             NOT NULL REFERENCES minicore.outbox_accounts(event_id),
+                last_event_id  BIGINT             NOT NULL REFERENCES minicore.outbox_accounts(event_id),
+                status         minicore.bulk_status_enum NOT NULL DEFAULT 'CREATED',
+                sent_at        TIMESTAMPTZ,
+                confirmed_at   TIMESTAMPTZ,
+                created_at     TIMESTAMPTZ        NOT NULL DEFAULT NOW(),
+                CONSTRAINT chk_accounts_bulk_range CHECK (last_event_id >= first_event_id)
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_accounts_bulk</rollback>
+    </changeSet>
+
+    <changeSet id="create-outbox-transactions-bulk-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_transactions_bulk (
+                bulk_id        BIGSERIAL          PRIMARY KEY,
+                first_event_id BIGINT             NOT NULL REFERENCES minicore.outbox_transactions(event_id),
+                last_event_id  BIGINT             NOT NULL REFERENCES minicore.outbox_transactions(event_id),
+                status         minicore.bulk_status_enum NOT NULL DEFAULT 'CREATED',
+                sent_at        TIMESTAMPTZ,
+                confirmed_at   TIMESTAMPTZ,
+                created_at     TIMESTAMPTZ        NOT NULL DEFAULT NOW(),
+                CONSTRAINT chk_transactions_bulk_range CHECK (last_event_id >= first_event_id)
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_transactions_bulk</rollback>
+    </changeSet>
+
+    <changeSet id="create-outbox-accounts-confirmations-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_accounts_confirmations (
+                event_id         BIGINT       PRIMARY KEY REFERENCES minicore.outbox_accounts(event_id),
+                dtw_confirmation VARCHAR(255) NOT NULL,
+                created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_accounts_confirmations</rollback>
+    </changeSet>
+
+    <changeSet id="create-outbox-transactions-confirmations-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_transactions_confirmations (
+                event_id         BIGINT       PRIMARY KEY REFERENCES minicore.outbox_transactions(event_id),
+                dtw_confirmation VARCHAR(255) NOT NULL,
+                created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_transactions_confirmations</rollback>
+    </changeSet>
+
+    <!-- ==================== Outbox sync control tables ==================== -->
+
+    <changeSet id="create-outbox-accounts-sync-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_accounts_sync_wait_confirmation (
+                event_id   BIGINT      PRIMARY KEY REFERENCES minicore.outbox_accounts(event_id),
+                bulk_id    BIGINT      NOT NULL REFERENCES minicore.outbox_accounts_bulk(bulk_id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_accounts_sync_wait_confirmation</rollback>
+    </changeSet>
+
+    <changeSet id="create-outbox-transactions-sync-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.outbox_transactions_sync_wait_confirmation (
+                event_id   BIGINT      PRIMARY KEY REFERENCES minicore.outbox_transactions(event_id),
+                bulk_id    BIGINT      NOT NULL REFERENCES minicore.outbox_transactions_bulk(bulk_id),
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.outbox_transactions_sync_wait_confirmation</rollback>
+    </changeSet>
+
+    <!-- ==================== Sync tables ==================== -->
+
+    <changeSet id="create-dtw-transaction-mapping-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.dtw_transaction_mapping (
+                local_transaction_id BIGINT      PRIMARY KEY REFERENCES minicore.transactions(transaction_id),
+                dtw_transaction_id   VARCHAR(64) NOT NULL UNIQUE,
+                sync_status          minicore.sync_status_enum NOT NULL DEFAULT 'PENDING',
+                created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                updated_at           TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.dtw_transaction_mapping</rollback>
+    </changeSet>
+
+    <changeSet id="create-sync-cursors-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.sync_cursors (
+                cursor_name             VARCHAR(100) PRIMARY KEY,
+                last_processed_event_id BIGINT       NOT NULL DEFAULT 0,
+                updated_at              TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.sync_cursors</rollback>
+    </changeSet>
+
+    <!-- ==================== Reference tables ==================== -->
+
+    <changeSet id="create-balances-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.balances (
+                balance_name VARCHAR(20) PRIMARY KEY
+            );
+            INSERT INTO minicore.balances (balance_name) VALUES ('AVAILABLE');
+            INSERT INTO minicore.balances (balance_name) VALUES ('COLLECTED')
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.balances</rollback>
+    </changeSet>
+
+    <changeSet id="create-transaction-codes-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.transaction_codes (
+                transaction_code NUMERIC(5)   PRIMARY KEY,
+                description      VARCHAR(100) NOT NULL
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.transaction_codes</rollback>
+    </changeSet>
+
+    <changeSet id="create-transaction-code-balance-effects-table" author="mini-core">
+        <sql>
+            CREATE TABLE minicore.transaction_code_balance_effects (
+                transaction_code NUMERIC(5)  NOT NULL REFERENCES minicore.transaction_codes(transaction_code),
+                balance_name     VARCHAR(20) NOT NULL REFERENCES minicore.balances(balance_name),
+                effect           SMALLINT    NOT NULL CHECK (effect IN (-1, 1)),
+                PRIMARY KEY (transaction_code, balance_name)
+            )
+        </sql>
+        <rollback>DROP TABLE IF EXISTS minicore.transaction_code_balance_effects</rollback>
+    </changeSet>
+
+</databaseChangeLog>

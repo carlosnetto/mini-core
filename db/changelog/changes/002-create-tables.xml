@@ -20,12 +20,21 @@
     <!-- ==================== Core tables ==================== -->
 
     <changeSet id="create-accounts-table" author="mini-core">
+        <comment>
+            Design note: balances are stored as columns directly on the accounts table for
+            simplicity. A more flexible alternative would be a separate account_balances table
+            with (account_id, balance_name) rows referencing the balances domain table — that
+            would allow adding new balance types (e.g. LEDGER, HOLD) without schema changes.
+            We chose the simpler approach because this is a teaching tool and two hardcoded
+            columns are easier to query and explain.
+        </comment>
         <sql>
             CREATE TABLE minicore.accounts (
                 account_id        BIGINT          PRIMARY KEY DEFAULT nextval('minicore.accounts_account_id_seq'),
                 account_number    VARCHAR(20)     NOT NULL UNIQUE,
                 product_type      minicore.product_type_enum    NOT NULL,
                 status            minicore.account_status_enum  NOT NULL DEFAULT 'ACTIVE',
+                -- See changeset comment above for why these are columns instead of a separate table
                 available_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
                 collected_balance NUMERIC(18,2)   NOT NULL DEFAULT 0.00,
                 currency_code     VARCHAR(10)      NOT NULL DEFAULT 'USD',

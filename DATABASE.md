@@ -39,6 +39,10 @@ The central entity. Each account has two balances that change automatically via 
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | Updated by the balance trigger |
 
+**Design note:** Balances are stored as columns directly on the accounts table for simplicity. A more flexible alternative would be a separate `account_balances` table with `(account_id, balance_name)` rows referencing the `balances` domain table — that would allow adding new balance types (e.g. LEDGER, HOLD) without schema changes, and the balance update trigger could be fully generic. We chose the simpler approach because this is a teaching tool and two hardcoded columns are easier to query and explain.
+
+**Future evolution — decimal precision:** All monetary columns use NUMERIC(18,2), which works for fiat currencies but not for cryptocurrencies like BTC (8 decimal places) or ETH (18). A future improvement would be to store the precision per currency in the `currencies` table and use a wider scale (e.g. NUMERIC(28,8)) across `accounts`, `transactions`, `transaction_balances`, and their outbox mirrors.
+
 **Balance semantics:** Balance effects are data-driven via `transaction_code_balance_effects`. Both PENDING and POSTED born transactions apply the full effect to both balances. The `direction` column is informational — the sign comes from the transaction code's configured effect (+1 or -1).
 
 ### transactions

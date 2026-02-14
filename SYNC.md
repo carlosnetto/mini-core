@@ -150,9 +150,11 @@ The `dtw_confirmation` field holds whatever reference Digital Twin returns — t
    |     |-> INSERT outbox_accounts (PRE + POS snapshots)
    |-> INSERT transaction_balances (running balance snapshot)
    |-> INSERT outbox_transactions (full transaction copy)
+   |     |-> pg_notify('outbox_transactions_new') wakes sync process
    |
    v
-3. Sync process picks up events after the last bulk's last_event_id
+3. Sync process (account_sync.py / transaction_sync.py):
+   |  Woken by LISTEN/NOTIFY, sleeps 30s to batch, then:
    |
    v
 4. INSERT INTO outbox_transactions_bulk (first=N, last=M)
@@ -161,18 +163,35 @@ The `dtw_confirmation` field holds whatever reference Digital Twin returns — t
    |   (one row per event in range)
    |
    v
-5. Serialize events as Avro, compress, send to Digital Twin
+5. Write JSON to digital-twin/<entity>/writing/, move to written/
    |-> UPDATE bulk SET status='SENT', sent_at=NOW()
    |
    v
-6. Digital Twin processes events asynchronously
+6. User copies file from written/ to confirm/ (simulates DTW processing)
    |
    v
-7. For each confirmed event:
-   INSERT INTO outbox_transactions_confirmations (event_id, dtw_confirmation)
+7. Confirm process (account_confirm.py / transaction_confirm.py):
+   |  Polls confirm/ every 10s, reads JSON, then for each event:
+   |
+   v
+8. INSERT INTO outbox_transactions_confirmations (event_id, dtw_confirmation)
    |  (trigger fires)
    |-> DELETE FROM outbox_transactions_sync_wait_confirmation
-       WHERE event_id = <confirmed>
+   |   WHERE event_id = <confirmed>
+   |
+   v
+9. UPDATE bulk SET confirmed_at=NOW()
+   |-> Move file from confirm/ to trash/
+```
+
+### File Flow
+
+```
+digital-twin/<entity>/
+  writing/    → sync writes here (milliseconds)
+  written/    → sync moves here (atomic, file complete)
+  confirm/    → user copies here (simulates DTW having processed it)
+  trash/      → confirm process moves here after updating PostgreSQL
 ```
 
 ## Monitoring

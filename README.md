@@ -57,6 +57,23 @@ cd web && npm run build && cd ..
 cd server && python server.py       # Everything on http://localhost:5001
 ```
 
+5. Start the sync and confirmation processes:
+
+```bash
+# Each process runs in its own terminal (reuse the server venv via symlink):
+cd sync
+python account_sync.py        # Listens for account outbox events → writes JSON
+python transaction_sync.py    # Listens for transaction outbox events → writes JSON
+python account_confirm.py     # Polls for confirmed account files → updates DB
+python transaction_confirm.py # Polls for confirmed transaction files → updates DB
+```
+
+To simulate the Digital Twin confirming a bulk, copy the file from `written/` to `confirm/`:
+
+```bash
+cp digital-twin/account/written/bulk-1.json digital-twin/account/confirm/
+```
+
 ## Web Dashboard
 
 The React frontend provides a full UI for interacting with the database:
@@ -81,15 +98,15 @@ Every account change and every new transaction is automatically captured in outb
 
 ### Digital Twin Sync
 
-A complete sync lifecycle managed entirely in the database:
+A complete sync lifecycle with file-based simulation of the Digital Twin:
 
 ```
 Outbox event created (by trigger)
-  -> Grouped into a bulk
-       -> Sync wait rows auto-created (by trigger)
-            -> Sent to Digital Twin
-                 -> Confirmation received
-                      -> Sync wait row auto-deleted (by trigger)
+  → Sync process: bulk CREATED → SENDING → SENT, JSON written to written/
+       → Sync wait rows auto-created (by trigger)
+            → User copies file from written/ to confirm/ (simulates DTW)
+                 → Confirm process: inserts confirmations, moves file to trash/
+                      → Sync wait row auto-deleted (by trigger)
 ```
 
 Query `outbox_*_sync_wait_confirmation` tables to see what's stuck — they stay small by design.
@@ -182,6 +199,18 @@ When running with `--contexts=seed`, creates 5 accounts and 10 transactions:
 server/
   server.py                 # Flask API + SPA static serving
   requirements.txt          # flask, psycopg2-binary, python-dotenv
+sync/
+  account_sync.py           # Sync: LISTEN/NOTIFY → bulk → JSON to digital-twin/account/written/
+  account_confirm.py        # Confirm: polls digital-twin/account/confirm/ → DB confirmations → trash/
+  transaction_sync.py       # Sync: LISTEN/NOTIFY → bulk → JSON to digital-twin/transaction/written/
+  transaction_confirm.py    # Confirm: polls digital-twin/transaction/confirm/ → DB confirmations → trash/
+digital-twin/               # JSON files simulating Digital Twin sends (gitignored)
+  account/
+    writing/                # Temp: file being written (milliseconds)
+    written/                # Complete: file ready (manually copy to confirm/ to simulate DTW)
+    confirm/                # User copies here → confirm process picks up and updates DB
+    trash/                  # Done: confirmation inserted into PostgreSQL
+  transaction/              # Same four-stage structure
 web/
   services/api.ts           # Typed API client
   types.ts                  # TypeScript interfaces matching DB columns
@@ -202,9 +231,12 @@ db/
       005-seed-data.xml                     # Reference + test data
       006-remove-processed-column.xml       # Drops processed column from outbox tables
       007-no-pending-credits.xml            # Prevents PENDING credit transactions
+      008-notify-outbox.xml                 # LISTEN/NOTIFY trigger on outbox_accounts
+      009-skip-balance-outbox.xml           # Skips outbox rows for balance-only updates
+      010-notify-outbox-transactions.xml    # LISTEN/NOTIFY trigger on outbox_transactions
 ```
 
-**75 changesets across 7 files.**
+**80 changesets across 10 files.**
 
 ## License
 

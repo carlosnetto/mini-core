@@ -1,6 +1,7 @@
 """
 Transaction Outbox Sync — listens for new outbox_transactions rows, creates bulks,
-and writes JSON files to digitaltwin-transaction/ simulating a Digital Twin send.
+and writes JSON files to digital-twin/transaction/ simulating a Digital Twin send.
+Files are written to writing/ first, then moved to written/ for atomic visibility.
 
 Usage:
     cd sync
@@ -12,6 +13,7 @@ import json
 import logging
 import os
 import select
+import shutil
 import time
 from datetime import date, datetime
 from decimal import Decimal
@@ -29,7 +31,8 @@ logging.basicConfig(
 )
 log = logging.getLogger("transaction_sync")
 
-OUTBOX_DIR = os.path.join(os.path.dirname(__file__), "..", "digitaltwin-transaction")
+WRITING_DIR = os.path.join(os.path.dirname(__file__), "..", "digital-twin", "transaction", "writing")
+WRITTEN_DIR = os.path.join(os.path.dirname(__file__), "..", "digital-twin", "transaction", "written")
 
 DB_CONFIG = {
     "host": os.getenv("DB_HOST", "localhost"),
@@ -126,11 +129,15 @@ def process_bulk(conn):
             **data,
         })
 
-    # 7. Write JSON file
-    os.makedirs(OUTBOX_DIR, exist_ok=True)
-    filepath = os.path.join(OUTBOX_DIR, f"bulk-{bulk_id}.json")
-    with open(filepath, "w") as f:
+    # 7. Write JSON file to writing/, then move to written/
+    os.makedirs(WRITING_DIR, exist_ok=True)
+    os.makedirs(WRITTEN_DIR, exist_ok=True)
+    filename = f"bulk-{bulk_id}.json"
+    writing_path = os.path.join(WRITING_DIR, filename)
+    written_path = os.path.join(WRITTEN_DIR, filename)
+    with open(writing_path, "w") as f:
         json.dump(events, f, indent=2, default=json_serial)
+    shutil.move(writing_path, written_path)
 
     # 8. Transition to SENT + update cursor
     cur.execute(
@@ -145,7 +152,7 @@ def process_bulk(conn):
     )
     conn.commit()
     log.info(
-        "Bulk %s SENT — %d events written to %s", bulk_id, len(events), filepath
+        "Bulk %s SENT — %d events written to %s", bulk_id, len(events), written_path
     )
 
 

@@ -54,3 +54,15 @@ The following items were originally tracked in TODO.md and addressed during this
   - **Outbox**: Separate tabs for account and transaction events. Displays mirrored columns with computed sync_status (PENDING/WAITING/CONFIRMED).
 
 - **No PENDING credits** (changeset 007): Updated `fn_validate_transaction_lifecycle` to reject born CREDIT transactions with PENDING status. Only POSTED is allowed for credits. Enforced at the database level — the frontend intentionally allows the attempt so users can see the database error.
+
+## February 14, 2026
+
+### Sync & Confirmation Processes
+
+- **Four-stage file flow**: Replaced flat `digitaltwin-account/` and `digitaltwin-transaction/` directories with a structured `digital-twin/` directory. Each entity (account, transaction) has four subdirectories: `writing/` (temp, milliseconds), `written/` (atomic move, file complete), `confirm/` (user manually copies here to simulate DTW), `trash/` (after DB confirmation).
+
+- **Sync processes** (`account_sync.py`, `transaction_sync.py`): Updated to write JSON to `writing/`, then atomically move to `written/`. Account sync now includes `pre_event_id` in UPDATE entries so both PRE and POS outbox events can be confirmed.
+
+- **Confirmation processes** (`account_confirm.py`, `transaction_confirm.py`): New Python programs that poll `confirm/` every 10 seconds. When a JSON file appears, they insert a confirmation row per event into `outbox_<entity>_confirmations` (triggering auto-deletion from `sync_wait_confirmation`), update the bulk's `confirmed_at`, and move the file to `trash/`. Account confirm handles both POS and PRE event_ids.
+
+- **Shared venv**: Symlinked `sync/.venv` → `server/.venv` so both directories share the same Python environment.

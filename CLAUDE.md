@@ -23,10 +23,21 @@ server/
   server.py                   # Flask API server — REST endpoints + SPA static file serving
   requirements.txt            # Python dependencies: flask, psycopg2-binary, python-dotenv
 sync/
-  account_sync.py             # Sync process: LISTEN/NOTIFY on outbox_accounts → bulk → JSON to digitaltwin-account/
-  transaction_sync.py         # Sync process: LISTEN/NOTIFY on outbox_transactions → bulk → JSON to digitaltwin-transaction/
-digitaltwin-account/          # JSON files simulating Digital Twin account sends (one file per bulk)
-digitaltwin-transaction/      # JSON files simulating Digital Twin transaction sends (one file per bulk)
+  account_sync.py             # Sync process: LISTEN/NOTIFY on outbox_accounts → bulk → JSON to digital-twin/account/
+  account_confirm.py          # Confirmation process: polls digital-twin/account/confirm/ → inserts confirmations → moves to trash/
+  transaction_sync.py         # Sync process: LISTEN/NOTIFY on outbox_transactions → bulk → JSON to digital-twin/transaction/
+  transaction_confirm.py      # Confirmation process: polls digital-twin/transaction/confirm/ → inserts confirmations → moves to trash/
+digital-twin/                 # JSON files simulating Digital Twin sends (gitignored)
+  account/
+    writing/                  # Temp: file being written by sync process (milliseconds)
+    written/                  # Complete: file ready (manually copy to confirm/ to simulate DTW)
+    confirm/             # User copies here to simulate DTW confirmation → confirm process picks up
+    trash/                    # Done: confirmation inserted into PostgreSQL
+  transaction/
+    writing/                  # Temp: file being written by sync process (milliseconds)
+    written/                  # Complete: file ready (manually copy to confirm/ to simulate DTW)
+    confirm/             # User copies here to simulate DTW confirmation → confirm process picks up
+    trash/                    # Done: confirmation inserted into PostgreSQL
 web/
   src/                        # React frontend (Vite + TypeScript + Tailwind CSS)
   services/api.ts             # API client — typed fetch wrappers for all endpoints
@@ -82,13 +93,17 @@ cd server && python server.py                                      # Everything 
 ### Sync Processes
 
 ```bash
-# Each sync process runs in its own terminal:
+# Each process runs in its own terminal:
 cd sync && pip install psycopg2-binary python-dotenv
 python account_sync.py        # Listens for account outbox events
 python transaction_sync.py    # Listens for transaction outbox events
+python account_confirm.py     # Polls for synced account files → inserts confirmations
+python transaction_confirm.py # Polls for synced transaction files → inserts confirmations
 ```
 
-Both use PostgreSQL LISTEN/NOTIFY — no polling. On notification, they sleep 30 seconds to batch events, then create a bulk (CREATED → SENDING → SENT) and write a JSON file to the corresponding `digitaltwin-*` folder.
+Sync processes use PostgreSQL LISTEN/NOTIFY — no polling. On notification, they sleep 30 seconds to batch events, then create a bulk (CREATED → SENDING → SENT) and write a JSON file to `digital-twin/<entity>/writing/`, then atomically move it to `digital-twin/<entity>/written/`.
+
+To simulate the Digital Twin having processed a bulk, manually copy a file from `written/` to `confirm/`. Confirmation processes poll `confirm/` every 10 seconds. When a file appears, they read it, insert a confirmation row per event into `outbox_<entity>_confirmations` (which triggers auto-deletion from `sync_wait_confirmation`), update the bulk's `confirmed_at`, and move the file to `trash/`.
 
 ### PostgreSQL JDBC Driver
 
@@ -272,7 +287,7 @@ Reference data (transaction codes + balance effects) runs without context — al
 - **No opposite signs** allowed for the same transaction code across different balances (enforced by trigger).
 - **Balances are not synced to Digital Twin** — the account outbox trigger skips balance-only updates (when only `available_balance`, `collected_balance`, and `updated_at` changed). Transaction inserts no longer generate account outbox rows. New accounts (INSERTs) still include balances (always zero). The Digital Twin computes its own balances from the transactions it receives.
 - **Sync processes use LISTEN/NOTIFY** — no polling. PostgreSQL triggers on `outbox_accounts` and `outbox_transactions` send notifications via `pg_notify`. The Python sync processes block on `select.select()` (zero CPU) until woken, then sleep 30 seconds to batch events before creating a bulk.
-- **Digital Twin is simulated via filesystem** — JSON files written to `digitaltwin-account/` and `digitaltwin-transaction/` folders, one file per bulk. A future confirmation process will read these folders and insert confirmations back into PostgreSQL.
+- **Digital Twin is simulated via filesystem** — JSON files flow through four stages: `writing/` (being written), `written/` (complete file), `confirm/` (user manually copies here to simulate DTW processing), `trash/` (confirmation inserted into PostgreSQL). The atomic move from `writing/` to `written/` ensures file integrity. The manual copy from `written/` to `confirm/` is the human-in-the-loop step that simulates the Digital Twin having processed the events. Confirmation processes poll `confirm/`, insert per-event confirmations (triggering sync_wait cleanup), update the bulk's `confirmed_at`, and move the file to `trash/`.
 - **Sync cursors are redundant** with `MAX(last_event_id) FROM outbox_*_bulk` but kept for simplicity.
 - **Schema `minicore` is created externally** — Liquibase does not create it.
 - **Frontend does no validation** — all business rules are enforced by PostgreSQL triggers. The UI intentionally shows raw database error messages to demonstrate database resilience.

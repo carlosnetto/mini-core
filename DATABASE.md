@@ -45,7 +45,7 @@ The central entity. Each account has two balances that change automatically via 
 
 Immutable, insert-only ledger. Every row represents a financial event. Inserting a transaction fires a trigger chain that validates lifecycle rules, updates account balances, writes a balance snapshot, and populates the outbox.
 
-Status transitions are modeled by inserting a new linked row with `original_transaction_id` pointing to the original PENDING transaction. Born transactions (`original_transaction_id IS NULL`) can only be PENDING or POSTED. Modifier rows (`original_transaction_id IS NOT NULL`) can only be POSTED (confirmation — no balance change) or CANCELLED (cancellation — reverses original's effects). The UNIQUE constraint on `original_transaction_id` ensures each PENDING gets at most one modifier.
+Status transitions are modeled by inserting a new linked row with `original_transaction_id` pointing to the original PENDING transaction. Born transactions (`original_transaction_id IS NULL`) can only be PENDING or POSTED — **except CREDIT transactions, which cannot be PENDING** (enforced by the lifecycle validation trigger). Modifier rows (`original_transaction_id IS NOT NULL`) can only be POSTED (confirmation — no balance change) or CANCELLED (cancellation — reverses original's effects). The UNIQUE constraint on `original_transaction_id` ensures each PENDING gets at most one modifier.
 
 | Column | Type | Notes |
 |--------|------|-------|
@@ -280,7 +280,7 @@ transaction_codes ──── N:M (via effects) ──── balances
 
 Inserting a transaction fires this cascade:
 
-1. `fn_validate_transaction_lifecycle` — validates modifier rules (BEFORE INSERT)
+1. `fn_validate_transaction_lifecycle` — validates lifecycle rules: rejects PENDING credits for born transactions; for modifiers, validates original exists, is PENDING, is not itself a modifier, and targets the same account (BEFORE INSERT)
 2. `fn_update_account_balance` — data-driven balance update using `transaction_code_balance_effects`, inserts into `transaction_balances`
 3. `fn_outbox_accounts` — writes PRE + POS snapshots to `outbox_accounts` (fired by the account UPDATE in step 2)
 4. `fn_outbox_transactions` — writes the transaction (including `original_transaction_id`) to `outbox_transactions`

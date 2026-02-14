@@ -43,3 +43,14 @@ The following items were originally tracked in TODO.md and addressed during this
 - **Audit Trail**: Added optional `created_by` VARCHAR(20) to `accounts`, `transactions`, and their outbox mirrors. No validation — free-form text for the caller to identify itself.
 
 - **Outbox Foreign Keys**: Added FKs from outbox tables to their source tables: `outbox_accounts.account_id` → `accounts`, `outbox_transactions.account_id` → `accounts`, `outbox_transactions.transaction_code` → `transaction_codes`. In production outbox tables often omit these for decoupling, but this is an educational system where referential integrity aids understanding.
+
+### Web Dashboard & API Server
+
+- **Flask API server** (`server/server.py`): Single-file Python server exposing 9 REST endpoints backed by PostgreSQL. Reads DB config from `.env` (same vars Liquibase uses). Custom error handler translates psycopg2 exceptions (trigger RAISE, unique violations, FK violations, check violations) into meaningful HTTP error responses. Serves the built React frontend as static files with SPA catch-all.
+
+- **React frontend** (`web/`): Full web dashboard built with Vite + TypeScript + Tailwind CSS. Three main views:
+  - **Accounts**: Create, search, browse. Clickable status badges with dropdown to change status — no client-side validation, PostgreSQL trigger errors displayed in modal. Clickable account numbers navigate to the transactions view.
+  - **Transactions**: Lazy-loads per account. New Transaction modal with searchable picker for all 86 transaction codes. Direction auto-derived from `transaction_code_balance_effects`. PENDING transactions have clickable status badges to Post (confirm) or Cancel via modifier rows. Balance cards refresh after changes.
+  - **Outbox**: Separate tabs for account and transaction events. Displays mirrored columns with computed sync_status (PENDING/WAITING/CONFIRMED).
+
+- **No PENDING credits** (changeset 007): Updated `fn_validate_transaction_lifecycle` to reject born CREDIT transactions with PENDING status. Only POSTED is allowed for credits. Enforced at the database level — the frontend intentionally allows the attempt so users can see the database error.

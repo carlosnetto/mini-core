@@ -1,13 +1,15 @@
 # Mini-Core: Simulated Existing Core Banking
 
-A PostgreSQL-only simulation of an existing core banking system that synchronizes bidirectionally with [Matera](https://www.matera.com)'s Digital Twin using the Outbox Pattern.
+A PostgreSQL simulation of an existing core banking system that synchronizes bidirectionally with [Matera](https://www.matera.com)'s Digital Twin using the Outbox Pattern. Includes a Flask API server and React web dashboard for browsing and managing accounts, transactions, and outbox events — all backed by real database triggers.
 
-This is not a real core banking system. It's a teaching and demonstration tool where all logic lives in the database as triggers and tables — no application code required.
+This is not a real core banking system. It's a teaching and demonstration tool where all business logic lives in the database as triggers and functions. The web dashboard intentionally performs no client-side validation — it sends raw requests and shows whatever PostgreSQL returns, demonstrating the database as the single source of truth.
 
 ## Prerequisites
 
 - PostgreSQL 14+
-- [Liquibase](https://www.liquibase.com/) CLI
+- [Liquibase](https://www.liquibase.com/) CLI (or use the Docker setup)
+- Python 3.8+ (for the API server)
+- Node.js 18+ (for the web dashboard)
 - A PostgreSQL database with a schema named `minicore` already created
 
 ## Quick Start
@@ -24,17 +26,44 @@ cp .env.example .env   # edit with your credentials
 CREATE SCHEMA IF NOT EXISTS minicore;
 ```
 
-3. Run Liquibase from the `db/` directory:
+3. Apply the schema with Liquibase:
 
 ```bash
-cd db
+# Via Docker (includes SchemaSpy ER diagram generation):
+LIQUIBASE_CONTEXTS=seed docker-compose up
 
-# Schema + reference data only (86 transaction codes, balance effects):
-liquibase update
-
-# Schema + reference data + test data (5 accounts, 10 transactions):
-liquibase update --contexts=seed
+# Or directly from the db/ directory:
+cd db && liquibase update --contexts=seed
 ```
+
+4. Start the web dashboard:
+
+```bash
+# Install and start the API server:
+cd server
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+python server.py                    # API on http://localhost:5001
+
+# In another terminal, start the frontend:
+cd web
+npm install && npm run dev          # Frontend on http://localhost:3000
+```
+
+For production, build the frontend first and let the Flask server serve everything:
+
+```bash
+cd web && npm run build && cd ..
+cd server && python server.py       # Everything on http://localhost:5001
+```
+
+## Web Dashboard
+
+The React frontend provides a full UI for interacting with the database:
+
+- **Accounts** — create, search, and browse accounts; click a status badge to change it (PostgreSQL validates the transition); click an account number to jump to its transactions
+- **Transactions** — create transactions with a searchable picker for all 86 transaction codes; direction is auto-derived from balance effects; click a PENDING status to Post or Cancel it (inserts a modifier row); balance cards refresh after every change
+- **Outbox** — separate views for account and transaction outbox events; displays mirrored columns and computed sync status (PENDING → WAITING → CONFIRMED)
 
 ## What's Inside
 
@@ -44,6 +73,7 @@ liquibase update --contexts=seed
 - **Transactions** (immutable, insert-only) with numeric codes from the 86-code catalog, data-driven balance updates via triggers, and a lifecycle model where PENDING transactions are confirmed or cancelled by inserting linked modifier rows
 - **Transaction balances** — a running balance snapshot recorded after every transaction
 - **86 US banking transaction codes** (deposits, withdrawals, fees) with configurable balance effects
+- **Credit transactions cannot be PENDING** — only POSTED is allowed, enforced at the database level
 
 ### Outbox Pattern (CDC)
 
@@ -97,12 +127,26 @@ minicore
   └── transaction_code_balance_effects      Config: which balances each code affects
 ```
 
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/api/accounts` | List accounts (optional `?search=` filter) |
+| GET | `/api/accounts/<id>` | Get one account |
+| POST | `/api/accounts` | Create account |
+| PATCH | `/api/accounts/<id>` | Update account status |
+| GET | `/api/accounts/<id>/transactions` | Transactions with running balances |
+| POST | `/api/transactions` | Create transaction (triggers fire automatically) |
+| GET | `/api/transaction-codes` | All 86 codes with balance effects |
+| GET | `/api/outbox/accounts` | Account outbox events with sync_status |
+| GET | `/api/outbox/transactions` | Transaction outbox events with sync_status |
+
 ## Trigger Chains
 
 **On transaction INSERT:**
 ```
 INSERT transaction
-  -> validate lifecycle rules (modifier must target PENDING, same account, etc.)
+  -> validate lifecycle rules (no PENDING credits, modifier must target PENDING, same account, etc.)
   -> update account balances (data-driven from transaction_code_balance_effects)
        -> write PRE + POS to outbox_accounts
   -> write balance snapshot to transaction_balances
@@ -135,6 +179,15 @@ When running with `--contexts=seed`, creates 5 accounts and 10 transactions:
 
 ```
 .env                        # DB connection (not committed)
+server/
+  server.py                 # Flask API + SPA static serving
+  requirements.txt          # flask, psycopg2-binary, python-dotenv
+web/
+  services/api.ts           # Typed API client
+  types.ts                  # TypeScript interfaces matching DB columns
+  views/                    # AccountsView, TransactionsView, OutboxView
+  components/               # Layout, Logo, Badge, etc.
+  vite.config.ts            # Dev proxy: /api → localhost:5001
 docs/
   erd/                      # Auto-generated ER diagrams and HTML docs (SchemaSpy)
 db/
@@ -148,7 +201,10 @@ db/
       004-create-functions-and-triggers.xml # 20 functions & triggers
       005-seed-data.xml                     # Reference + test data
       006-remove-processed-column.xml       # Drops processed column from outbox tables
+      007-no-pending-credits.xml            # Prevents PENDING credit transactions
 ```
+
+**75 changesets across 7 files.**
 
 ## License
 

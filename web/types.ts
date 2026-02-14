@@ -93,3 +93,28 @@ export interface OutboxTransactionEvent {
   event_created_at: string;
   sync_status: SyncStatus;
 }
+
+// Enriched detail types (returned by single-event endpoints)
+
+export interface OutboxTransactionEventDetail extends OutboxTransactionEvent {
+  transaction_description: string;
+  bulk_id: number | null;
+  bulk_status: string | null;
+  bulk_created_at: string | null;
+  bulk_sent_at: string | null;
+  bulk_confirmed_at: string | null;
+  dtw_confirmation: string | null;
+  confirmation_created_at: string | null;
+  dtw_transaction_id: string | null;
+  dtw_sync_status: string | null;
+}
+
+export interface OutboxAccountEventDetail extends OutboxAccountEvent {
+  bulk_id: number | null;
+  bulk_status: string | null;
+  bulk_created_at: string | null;
+  bulk_sent_at: string | null;
+  bulk_confirmed_at: string | null;
+  dtw_confirmation: string | null;
+  confirmation_created_at: string | null;
+}

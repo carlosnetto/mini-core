@@ -412,6 +412,97 @@ def list_outbox_transactions():
     return json_response(fetch_all(cur))
 
 
+# ---------------------------------------------------------------------------
+# GET /api/outbox/transactions/<event_id>  (enriched detail)
+# ---------------------------------------------------------------------------
+@app.route("/api/outbox/transactions/<int:event_id>")
+@handle_db_error
+def get_outbox_transaction_detail(event_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        """SELECT ot.event_id, ot.operation_type,
+                  ot.transaction_id, ot.account_id,
+                  ot.original_transaction_id,
+                  ot.transaction_code, ot.amount, ot.direction, ot.status,
+                  ot.json_payload, ot.effective_date,
+                  ot.created_by, ot.created_at,
+                  ot.event_created_at,
+                  tc.description AS transaction_description,
+                  b.bulk_id, b.status AS bulk_status,
+                  b.created_at AS bulk_created_at,
+                  b.sent_at AS bulk_sent_at,
+                  b.confirmed_at AS bulk_confirmed_at,
+                  c.dtw_confirmation,
+                  c.created_at AS confirmation_created_at,
+                  m.dtw_transaction_id,
+                  m.sync_status AS dtw_sync_status,
+                  CASE
+                      WHEN c.event_id IS NOT NULL THEN 'CONFIRMED'
+                      WHEN w.event_id IS NOT NULL THEN 'WAITING'
+                      ELSE 'PENDING'
+                  END AS sync_status
+             FROM outbox_transactions ot
+             JOIN transaction_codes tc ON tc.transaction_code = ot.transaction_code
+        LEFT JOIN outbox_transactions_bulk b
+               ON ot.event_id BETWEEN b.first_event_id AND b.last_event_id
+        LEFT JOIN outbox_transactions_sync_wait_confirmation w
+               ON w.event_id = ot.event_id
+        LEFT JOIN outbox_transactions_confirmations c
+               ON c.event_id = ot.event_id
+        LEFT JOIN dtw_transaction_mapping m
+               ON m.local_transaction_id = ot.transaction_id
+            WHERE ot.event_id = %s""",
+        (event_id,),
+    )
+    row = fetch_one(cur)
+    if not row:
+        return json_response({"error": "Outbox event not found"}, 404)
+    return json_response(row)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/outbox/accounts/<event_id>  (enriched detail)
+# ---------------------------------------------------------------------------
+@app.route("/api/outbox/accounts/<int:event_id>")
+@handle_db_error
+def get_outbox_account_detail(event_id):
+    db = get_db()
+    cur = db.cursor()
+    cur.execute(
+        """SELECT oa.event_id, oa.operation_type, oa.snapshot_type,
+                  oa.account_id, oa.account_number, oa.product_type,
+                  oa.status, oa.available_balance, oa.collected_balance,
+                  oa.currency_code, oa.created_by,
+                  oa.created_at, oa.updated_at,
+                  oa.event_created_at,
+                  b.bulk_id, b.status AS bulk_status,
+                  b.created_at AS bulk_created_at,
+                  b.sent_at AS bulk_sent_at,
+                  b.confirmed_at AS bulk_confirmed_at,
+                  c.dtw_confirmation,
+                  c.created_at AS confirmation_created_at,
+                  CASE
+                      WHEN c.event_id IS NOT NULL THEN 'CONFIRMED'
+                      WHEN w.event_id IS NOT NULL THEN 'WAITING'
+                      ELSE 'PENDING'
+                  END AS sync_status
+             FROM outbox_accounts oa
+        LEFT JOIN outbox_accounts_bulk b
+               ON oa.event_id BETWEEN b.first_event_id AND b.last_event_id
+        LEFT JOIN outbox_accounts_sync_wait_confirmation w
+               ON w.event_id = oa.event_id
+        LEFT JOIN outbox_accounts_confirmations c
+               ON c.event_id = oa.event_id
+            WHERE oa.event_id = %s""",
+        (event_id,),
+    )
+    row = fetch_one(cur)
+    if not row:
+        return json_response({"error": "Outbox event not found"}, 404)
+    return json_response(row)
+
+
 # ===================================================================
 # STATIC FILE SERVING (SPA catch-all)
 # ===================================================================

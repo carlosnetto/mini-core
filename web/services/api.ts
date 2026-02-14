@@ -1,4 +1,4 @@
-import { Account, Transaction, OutboxAccountEvent, OutboxTransactionEvent } from '../types';
+import { Account, Transaction, OutboxAccountEvent, OutboxTransactionEvent, OutboxTransactionEventDetail, OutboxAccountEventDetail } from '../types';
 
 const BASE = '/api';
 
@@ -30,6 +30,14 @@ export function fetchOutboxAccounts(): Promise<OutboxAccountEvent[]> {
 
 export function fetchOutboxTransactions(): Promise<OutboxTransactionEvent[]> {
   return fetchJson(`${BASE}/outbox/transactions`);
+}
+
+export function fetchOutboxTransactionDetail(eventId: number): Promise<OutboxTransactionEventDetail> {
+  return fetchJson(`${BASE}/outbox/transactions/${eventId}`);
+}
+
+export function fetchOutboxAccountDetail(eventId: number): Promise<OutboxAccountEventDetail> {
+  return fetchJson(`${BASE}/outbox/accounts/${eventId}`);
 }
 
 export async function createAccount(data: {

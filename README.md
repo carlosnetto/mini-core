@@ -80,7 +80,7 @@ The React frontend provides a full UI for interacting with the database:
 
 - **Accounts** — create, search, and browse accounts; click a status badge to change it (PostgreSQL validates the transition); click an account number to jump to its transactions
 - **Transactions** — create transactions with a searchable picker for all 86 transaction codes; direction is auto-derived from balance effects; click a PENDING status to Post or Cancel it (inserts a modifier row); balance cards refresh after every change
-- **Outbox** — separate views for account and transaction outbox events; displays mirrored columns and computed sync status (PENDING → WAITING → CONFIRMED)
+- **Outbox** — separate views for account and transaction outbox events; displays mirrored columns and computed sync status (PENDING → WAITING → CONFIRMED); click any event ID to open a detail modal with full sync lifecycle, bulk info, DTW mapping, and confirmation data
 
 ## What's Inside
 
@@ -156,7 +156,9 @@ minicore
 | POST | `/api/transactions` | Create transaction (triggers fire automatically) |
 | GET | `/api/transaction-codes` | All 86 codes with balance effects |
 | GET | `/api/outbox/accounts` | Account outbox events with sync_status |
+| GET | `/api/outbox/accounts/<event_id>` | Enriched account event detail (bulk, confirmations) |
 | GET | `/api/outbox/transactions` | Transaction outbox events with sync_status |
+| GET | `/api/outbox/transactions/<event_id>` | Enriched transaction event detail (bulk, confirmations, DTW mapping) |
 
 ## Trigger Chains
 

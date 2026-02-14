@@ -127,7 +127,9 @@ The Flask server (`server/server.py`) exposes these REST endpoints on port 5001:
 | POST | `/api/transactions` | Create transaction (triggers fire automatically) |
 | GET | `/api/transaction-codes` | List all 86 transaction codes with balance effects |
 | GET | `/api/outbox/accounts` | List account outbox events with computed sync_status |
+| GET | `/api/outbox/accounts/<event_id>` | Enriched account event detail (JOINs bulk, confirmations) |
 | GET | `/api/outbox/transactions` | List transaction outbox events with computed sync_status |
+| GET | `/api/outbox/transactions/<event_id>` | Enriched transaction event detail (JOINs bulk, confirmations, DTW mapping, transaction codes) |
 
 - DB connection reads from `.env` (same vars Liquibase uses)
 - `search_path` set to `minicore` so queries don't need schema prefix
@@ -142,7 +144,7 @@ The React frontend (`web/`) provides a UI for interacting with the database:
 
 - **Accounts view** — list, create, search accounts; click status badge to change status (validation happens in PostgreSQL, errors shown in modal); click account number to navigate to transactions
 - **Transactions view** — lazy-loads transactions per account; create new transactions with searchable transaction code picker (86 codes); direction auto-derived from balance effects; click PENDING status to Post or Cancel (inserts modifier row); balance cards refresh after changes
-- **Outbox views** — separate tabs for account and transaction outbox events; displays mirrored columns and computed sync_status (PENDING → WAITING → CONFIRMED)
+- **Outbox views** — separate tabs for account and transaction outbox events; displays mirrored columns and computed sync_status (PENDING → WAITING → CONFIRMED); click any event_id to open a detail modal showing the full event lifecycle: transaction/account details, sync timeline, bulk information, Digital Twin mapping (transactions only), and confirmation data
 
 The frontend intentionally does **no business validation** — it sends raw requests and displays whatever PostgreSQL returns (including trigger error messages). This demonstrates that the database is the single source of truth.
 

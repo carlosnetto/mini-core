@@ -66,3 +66,11 @@ The following items were originally tracked in TODO.md and addressed during this
 - **Confirmation processes** (`account_confirm.py`, `transaction_confirm.py`): New Python programs that poll `confirm/` every 10 seconds. When a JSON file appears, they insert a confirmation row per event into `outbox_<entity>_confirmations` (triggering auto-deletion from `sync_wait_confirmation`), update the bulk's `confirmed_at`, and move the file to `trash/`. Account confirm handles both POS and PRE event_ids.
 
 - **Shared venv**: Symlinked `sync/.venv` → `server/.venv` so both directories share the same Python environment.
+
+### Outbox Event Detail Modal
+
+- **Two new API endpoints**: `GET /api/outbox/transactions/<event_id>` and `GET /api/outbox/accounts/<event_id>` — each returns an enriched view of a single outbox event by JOINing the event with its bulk, sync wait, confirmations, and (for transactions) transaction codes and DTW mapping tables.
+
+- **Clickable event IDs**: In the Outbox views (both accounts and transactions tabs), the `event_id` column is now a clickable link that opens a read-only detail modal.
+
+- **Detail modal sections**: The modal displays the full event lifecycle organized in sections — entity details (transaction code description, amounts, status), sync timeline (visual step-by-step from creation through confirmation), bulk information (ID, status, timestamps), Digital Twin mapping (DTW transaction ID and sync status, transactions only), confirmation data (DTW confirmation string), and JSON payload (pretty-printed, if present). Sections only render when data is available (e.g., no bulk section for PENDING events).

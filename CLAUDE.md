@@ -129,7 +129,7 @@ The frontend intentionally does **no business validation** — it sends raw requ
 ### Tables (17)
 
 **Core tables:**
-- `accounts` — PK from sequence starting at 1000. Two balances: `available_balance` and `collected_balance`. No ledger balance. Optional `created_by` VARCHAR(20) for audit trail.
+- `accounts` — PK from sequence starting at 1000. Two balances: `available_balance` and `collected_balance` (hardcoded as columns for simplicity; a more flexible design would use a separate `account_balances` table referencing the `balances` domain table — see DATABASE.md). No ledger balance. All monetary columns use NUMERIC(18,2), which works for fiat but not for crypto (future evolution). Optional `created_by` VARCHAR(20) for audit trail.
 - `transactions` — PK from sequence starting at 100000. Immutable (insert-only, never updated). `transaction_code` is NUMERIC(5) with FK to `transaction_codes`. Amount must be > 0. `original_transaction_id` (BIGINT, UNIQUE, self-referencing FK) links modifier rows to their originals. Born transactions (`original_transaction_id IS NULL`) can only be PENDING or POSTED — **except CREDIT transactions, which cannot be PENDING** (enforced by trigger). Modifier rows (`original_transaction_id IS NOT NULL`) can only be POSTED (confirmation) or CANCELLED (cancellation). Balance effects are data-driven via `transaction_code_balance_effects`. Optional `created_by` VARCHAR(20) for audit trail.
 - `transaction_balances` — Running balance snapshot. One row per transaction, recording both account balances AFTER that transaction was applied. PK = transaction_id.
 
@@ -240,7 +240,8 @@ Reference data (transaction codes + balance effects) runs without context — al
 - **Outbox tables mirror columns** instead of storing JSONB payloads, using identical column names as the source tables. The outbox's own timestamp is `event_created_at` to avoid collision. Makes it easier to query, explain, and build generic consumers.
 - **Transactions are immutable** — insert-only, never updated. Status transitions (PENDING→POSTED or PENDING→CANCELLED) are modeled by inserting a new linked row with `original_transaction_id` pointing to the original. The outbox trigger only fires on INSERT.
 - **Credit transactions cannot be PENDING** — only POSTED is allowed for born credit transactions. This is enforced by the lifecycle validation trigger at the database level.
-- **Accounts have two balances**: `available_balance` and `collected_balance`. No ledger balance.
+- **Accounts have two balances**: `available_balance` and `collected_balance`, stored as hardcoded columns for simplicity. A more flexible design would use a separate `account_balances` table with `(account_id, balance_name)` rows referencing the `balances` domain table, allowing new balance types without schema changes. No ledger balance.
+- **Decimal precision is NUMERIC(18,2)** across all monetary columns. Sufficient for fiat currencies but not for cryptocurrencies like BTC (8 decimals) or ETH (18). A future improvement would store precision per currency and use a wider scale.
 - **Balance effects are data-driven** — determined by `transaction_code_balance_effects`, not by `direction` or `status`. Both PENDING and POSTED born transactions apply the full effect. Confirmations (modifier POSTED) cause no balance change. Cancellations (modifier CANCELLED) reverse the original's effects.
 - **Sync wait tables stay small by design** — rows are auto-created on bulk creation and auto-deleted on confirmation. Query them to find what's stuck.
 - **Transaction codes use numeric ranges**: 10001-10099 credits, 20001-20099 debits, 30001-30099 fees. Each code has a user-facing description and balance effects (+1/-1) configured in `transaction_code_balance_effects`.

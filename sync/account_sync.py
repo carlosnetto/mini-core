@@ -115,8 +115,8 @@ def process_bulk(conn):
     rows = [dict(zip(columns, r)) for r in cur.fetchall()]
 
     # 6. Build JSON payload — account_number + updated fields only
-    skip = {"event_id", "operation_type", "snapshot_type", "event_created_at",
-            "available_balance", "collected_balance"}
+    skip_always = {"event_id", "operation_type", "snapshot_type", "event_created_at"}
+    skip_on_update = skip_always | {"available_balance", "collected_balance"}
     events = []
     i = 0
     while i < len(rows):
@@ -129,7 +129,7 @@ def process_bulk(conn):
             if pos and pos["snapshot_type"] == "POS" and pos["account_id"] == pre["account_id"]:
                 changes = {}
                 for key in pre:
-                    if key in skip:
+                    if key in skip_on_update:
                         continue
                     if pre[key] != pos[key]:
                         changes[key] = pos[key]
@@ -143,8 +143,8 @@ def process_bulk(conn):
                 continue
 
         if row["snapshot_type"] == "POS":
-            # INSERT or unpaired POS — include all fields
-            data = {k: v for k, v in row.items() if k not in skip}
+            # INSERT or unpaired POS — include all fields (balances included)
+            data = {k: v for k, v in row.items() if k not in skip_always}
             events.append({
                 "event_id": row["event_id"],
                 "operation": row["operation_type"],

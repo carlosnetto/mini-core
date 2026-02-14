@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="fn-notify-outbox-transactions" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_notify_outbox_transactions()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                PERFORM pg_notify('outbox_transactions_new', '');
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>
+            <sql>DROP FUNCTION IF EXISTS minicore.fn_notify_outbox_transactions()</sql>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="trg-notify-outbox-transactions" author="mini-core">
+        <sql>
+            CREATE TRIGGER trg_notify_outbox_transactions
+            AFTER INSERT ON minicore.outbox_transactions
+            FOR EACH ROW
+            EXECUTE FUNCTION minicore.fn_notify_outbox_transactions()
+        </sql>
+        <rollback>
+            <sql>DROP TRIGGER IF EXISTS trg_notify_outbox_transactions ON minicore.outbox_transactions</sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

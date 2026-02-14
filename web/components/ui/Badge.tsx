@@ -1,5 +1,5 @@
 import React from 'react';
-import { AccountStatus, TransactionStatus, OutboxStatus, TransactionType } from '../../types';
+import { AccountStatus, TransactionStatus, TransactionDirection, SyncStatus } from '../../types';
 
 interface BadgeProps {
   status?: string;
@@ -18,20 +18,18 @@ export const Badge: React.FC<BadgeProps> = ({ status, type = 'status', children,
   if (status === AccountStatus.DORMANT) colorClass = 'bg-amber-100 text-amber-800 border-amber-200';
 
   // Transaction Status Colors
-  if (status === TransactionStatus.COMPLETED) colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
   if (status === TransactionStatus.PENDING) colorClass = 'bg-amber-50 text-amber-700 border-amber-200';
-  if (status === TransactionStatus.FAILED) colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
+  if (status === TransactionStatus.POSTED) colorClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+  if (status === TransactionStatus.CANCELLED) colorClass = 'bg-rose-50 text-rose-700 border-rose-200';
 
-  // Transaction Type Colors
-  if (status === TransactionType.CREDIT) colorClass = 'bg-green-50 text-green-700 border-green-200';
-  if (status === TransactionType.DEBIT) colorClass = 'bg-red-50 text-red-700 border-red-200';
-  if (status === TransactionType.TRANSFER) colorClass = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+  // Transaction Direction Colors
+  if (status === TransactionDirection.CREDIT) colorClass = 'bg-green-50 text-green-700 border-green-200';
+  if (status === TransactionDirection.DEBIT) colorClass = 'bg-red-50 text-red-700 border-red-200';
 
-  // Outbox Status Colors
-  if (status === OutboxStatus.SENT) colorClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
-  if (status === OutboxStatus.PROCESSING) colorClass = 'bg-blue-100 text-blue-800 border-blue-200 animate-pulse';
-  if (status === OutboxStatus.WAITING) colorClass = 'bg-slate-100 text-slate-800 border-slate-200';
-  if (status === OutboxStatus.FAILED) colorClass = 'bg-rose-100 text-rose-800 border-rose-200';
+  // Sync Status Colors
+  if (status === SyncStatus.CONFIRMED) colorClass = 'bg-emerald-100 text-emerald-800 border-emerald-200';
+  if (status === SyncStatus.WAITING) colorClass = 'bg-blue-100 text-blue-800 border-blue-200';
+  if (status === SyncStatus.PENDING) colorClass = 'bg-amber-100 text-amber-800 border-amber-200';
 
   return (
     <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${colorClass} ${className}`}>

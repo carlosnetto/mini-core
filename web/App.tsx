@@ -1,36 +1,37 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Layout } from './components/Layout';
 import { AccountsView } from './views/AccountsView';
 import { TransactionsView } from './views/TransactionsView';
 import { OutboxView } from './views/OutboxView';
-import { generateAccounts, generateTransactions, generateOutboxItems } from './services/mockData';
-import { Account, Transaction, OutboxItem, OutboxStatus } from './types';
+import { fetchAccounts, fetchOutboxAccounts, fetchOutboxTransactions } from './services/api';
+import { Account, OutboxAccountEvent, OutboxTransactionEvent, SyncStatus } from './types';
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState('accounts');
+  const [selectedAccountId, setSelectedAccountId] = useState<number | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [acctOutbox, setAcctOutbox] = useState<OutboxItem[]>([]);
-  const [txOutbox, setTxOutbox] = useState<OutboxItem[]>([]);
+  const [acctOutbox, setAcctOutbox] = useState<OutboxAccountEvent[]>([]);
+  const [txOutbox, setTxOutbox] = useState<OutboxTransactionEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    // Simulate initial data load
-    const loadData = () => {
-      const accts = generateAccounts(50);
-      const txs = generateTransactions(0, accts); // Count handled inside based on accounts
-      const outboxA = generateOutboxItems(15, 'ACCOUNT');
-      const outboxT = generateOutboxItems(25, 'TRANSACTION');
-
+  const loadData = useCallback(async () => {
+    try {
+      const [accts, outboxA, outboxT] = await Promise.all([
+        fetchAccounts(),
+        fetchOutboxAccounts(),
+        fetchOutboxTransactions(),
+      ]);
       setAccounts(accts);
-      setTransactions(txs);
       setAcctOutbox(outboxA);
       setTxOutbox(outboxT);
+    } catch (err) {
+      console.error('Failed to load data:', err);
+    } finally {
       setIsLoading(false);
-    };
-
-    setTimeout(loadData, 800);
+    }
   }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   if (isLoading) {
     return (
@@ -41,20 +42,20 @@ const App: React.FC = () => {
     );
   }
 
-  const pendingAcctsCount = acctOutbox.filter(i => i.status === OutboxStatus.WAITING || i.status === OutboxStatus.PROCESSING).length;
-  const pendingTxCount = txOutbox.filter(i => i.status === OutboxStatus.WAITING || i.status === OutboxStatus.PROCESSING).length;
+  const pendingAcctsCount = acctOutbox.filter(i => i.sync_status === SyncStatus.PENDING || i.sync_status === SyncStatus.WAITING).length;
+  const pendingTxCount = txOutbox.filter(i => i.sync_status === SyncStatus.PENDING || i.sync_status === SyncStatus.WAITING).length;
 
   return (
-    <Layout 
-      activeTab={activeTab} 
+    <Layout
+      activeTab={activeTab}
       onTabChange={setActiveTab}
       outboxAcctsCount={pendingAcctsCount}
       outboxTransCount={pendingTxCount}
     >
-      {activeTab === 'accounts' && <AccountsView accounts={accounts} />}
-      {activeTab === 'transactions' && <TransactionsView transactions={transactions} accounts={accounts} />}
-      {activeTab === 'outbox-accts' && <OutboxView items={acctOutbox} title="Account Events" />}
-      {activeTab === 'outbox-trans' && <OutboxView items={txOutbox} title="Transaction Events" />}
+      {activeTab === 'accounts' && <AccountsView accounts={accounts} onRefresh={loadData} onNavigateToTransactions={(id) => { setSelectedAccountId(id); setActiveTab('transactions'); }} />}
+      {activeTab === 'transactions' && <TransactionsView accounts={accounts} initialAccountId={selectedAccountId} onRefresh={loadData} />}
+      {activeTab === 'outbox-accts' && <OutboxView items={acctOutbox} title="Account Events" type="accounts" />}
+      {activeTab === 'outbox-trans' && <OutboxView items={txOutbox} title="Transaction Events" type="transactions" />}
     </Layout>
   );
 };

@@ -1,72 +1,95 @@
-export enum Currency {
-  USD = 'USD',
-  USDC = 'USDC',
-}
+// Enums matching PostgreSQL types
 
 export enum AccountStatus {
   ACTIVE = 'ACTIVE',
+  DORMANT = 'DORMANT',
   FROZEN = 'FROZEN',
   CLOSED = 'CLOSED',
-  PENDING = 'PENDING',
-  DORMANT = 'DORMANT'
 }
 
-export enum TransactionType {
-  CREDIT = 'CREDIT',
+export enum TransactionDirection {
   DEBIT = 'DEBIT',
-  TRANSFER = 'TRANSFER',
-  FEE = 'FEE'
+  CREDIT = 'CREDIT',
 }
 
 export enum TransactionStatus {
-  COMPLETED = 'COMPLETED',
   PENDING = 'PENDING',
-  FAILED = 'FAILED'
+  POSTED = 'POSTED',
+  CANCELLED = 'CANCELLED',
 }
 
-export enum OutboxStatus {
+export enum SyncStatus {
+  PENDING = 'PENDING',
   WAITING = 'WAITING',
-  PROCESSING = 'PROCESSING',
-  SENT = 'SENT',
-  FAILED = 'FAILED'
+  CONFIRMED = 'CONFIRMED',
 }
+
+// Core types matching database columns
 
 export interface Account {
-  id: string; // 10 digit number
-  branchNumber: string; // 9 digits
-  accountNumber: string; // US format
-  availableBalance: number;
-  collectedBalance: number;
-  currency: Currency;
+  account_id: number;
+  account_number: string;
+  product_type: string;
   status: AccountStatus;
-  createdAt: string;
-  lastUpdated: string;
+  available_balance: number;
+  collected_balance: number;
+  currency_code: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Transaction {
-  id: string;
-  accountId: string; // The account this affects
-  counterpartyAccountId?: string; // Optional other party
+  transaction_id: number;
+  account_id: number;
+  original_transaction_id: number | null;
+  transaction_code: number;
+  transaction_description: string;
   amount: number;
-  currency: Currency;
-  type: TransactionType;
+  direction: TransactionDirection;
   status: TransactionStatus;
-  timestamp: string;
-  effectiveDate: string; // "As Of" date
-  transactionCode: string;
-  description: string;
-  postBalanceAvailable: number;
-  postBalanceCollected: number;
-  reference: string;
+  json_payload: any | null;
+  effective_date: string;
+  created_by: string | null;
+  created_at: string;
+  post_available_balance: number | null;
+  post_collected_balance: number | null;
 }
 
-export interface OutboxItem {
-  id: string;
-  entityType: 'ACCOUNT' | 'TRANSACTION';
-  entityId: string;
-  eventType: string;
-  payload: string; // JSON string
-  status: OutboxStatus;
-  createdAt: string;
-  retryCount: number;
+// Outbox types matching mirrored columns + computed sync_status
+
+export interface OutboxAccountEvent {
+  event_id: number;
+  operation_type: string;
+  snapshot_type: string;
+  account_id: number;
+  account_number: string;
+  product_type: string;
+  status: string;
+  available_balance: number;
+  collected_balance: number;
+  currency_code: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  event_created_at: string;
+  sync_status: SyncStatus;
+}
+
+export interface OutboxTransactionEvent {
+  event_id: number;
+  operation_type: string;
+  transaction_id: number;
+  account_id: number;
+  original_transaction_id: number | null;
+  transaction_code: number;
+  amount: number;
+  direction: string;
+  status: string;
+  json_payload: any | null;
+  effective_date: string;
+  created_by: string | null;
+  created_at: string;
+  event_created_at: string;
+  sync_status: SyncStatus;
 }

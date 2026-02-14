@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="fn-validate-transaction-lifecycle-v2" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_validate_transaction_lifecycle()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_orig_status  minicore.transaction_status_enum;
+                v_orig_parent  BIGINT;
+                v_orig_account BIGINT;
+            BEGIN
+                -- Born transactions: CREDIT direction cannot be PENDING
+                IF NEW.original_transaction_id IS NULL
+                   AND NEW.direction = 'CREDIT'
+                   AND NEW.status = 'PENDING' THEN
+                    RAISE EXCEPTION 'Credit transactions cannot be created as PENDING — only POSTED is allowed for credits';
+                END IF;
+
+                IF NEW.original_transaction_id IS NOT NULL THEN
+                    -- Look up the original transaction
+                    SELECT status, original_transaction_id, account_id
+                    INTO v_orig_status, v_orig_parent, v_orig_account
+                    FROM minicore.transactions
+                    WHERE transaction_id = NEW.original_transaction_id;
+
+                    IF NOT FOUND THEN
+                        RAISE EXCEPTION 'Original transaction % does not exist', NEW.original_transaction_id;
+                    END IF;
+
+                    -- Original must be a born PENDING (not itself a modifier)
+                    IF v_orig_status != 'PENDING' THEN
+                        RAISE EXCEPTION 'Can only confirm/cancel PENDING transactions (original % is %)',
+                            NEW.original_transaction_id, v_orig_status;
+                    END IF;
+
+                    IF v_orig_parent IS NOT NULL THEN
+                        RAISE EXCEPTION 'Cannot modify a modifier transaction (original % is itself a modifier)',
+                            NEW.original_transaction_id;
+                    END IF;
+
+                    -- Must target the same account
+                    IF v_orig_account != NEW.account_id THEN
+                        RAISE EXCEPTION 'Modifier account_id (%) must match original account_id (%)',
+                            NEW.account_id, v_orig_account;
+                    END IF;
+                END IF;
+
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>
+            <!-- Restore v1 without the credit-pending check -->
+            <sql splitStatements="false">
+                CREATE OR REPLACE FUNCTION minicore.fn_validate_transaction_lifecycle()
+                RETURNS TRIGGER AS $$
+                DECLARE
+                    v_orig_status  minicore.transaction_status_enum;
+                    v_orig_parent  BIGINT;
+                    v_orig_account BIGINT;
+                BEGIN
+                    IF NEW.original_transaction_id IS NOT NULL THEN
+                        SELECT status, original_transaction_id, account_id
+                        INTO v_orig_status, v_orig_parent, v_orig_account
+                        FROM minicore.transactions
+                        WHERE transaction_id = NEW.original_transaction_id;
+
+                        IF NOT FOUND THEN
+                            RAISE EXCEPTION 'Original transaction % does not exist', NEW.original_transaction_id;
+                        END IF;
+
+                        IF v_orig_status != 'PENDING' THEN
+                            RAISE EXCEPTION 'Can only confirm/cancel PENDING transactions (original % is %)',
+                                NEW.original_transaction_id, v_orig_status;
+                        END IF;
+
+                        IF v_orig_parent IS NOT NULL THEN
+                            RAISE EXCEPTION 'Cannot modify a modifier transaction (original % is itself a modifier)',
+                                NEW.original_transaction_id;
+                        END IF;
+
+                        IF v_orig_account != NEW.account_id THEN
+                            RAISE EXCEPTION 'Modifier account_id (%) must match original account_id (%)',
+                                NEW.account_id, v_orig_account;
+                        END IF;
+                    END IF;
+
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

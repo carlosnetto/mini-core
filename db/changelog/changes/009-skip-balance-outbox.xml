@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="fn-outbox-accounts-skip-balance" author="mini-core">
+        <comment>Skip outbox row when only balances changed (balances are not synced to Digital Twin)</comment>
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_outbox_accounts()
+            RETURNS TRIGGER AS $$
+            BEGIN
+                IF TG_OP = 'UPDATE' THEN
+                    -- Skip if only balances (and updated_at) changed
+                    IF OLD.account_number  IS NOT DISTINCT FROM NEW.account_number
+                       AND OLD.product_type IS NOT DISTINCT FROM NEW.product_type
+                       AND OLD.status       IS NOT DISTINCT FROM NEW.status
+                       AND OLD.currency_code IS NOT DISTINCT FROM NEW.currency_code
+                       AND OLD.created_by   IS NOT DISTINCT FROM NEW.created_by
+                    THEN
+                        RETURN NEW;
+                    END IF;
+
+                    -- Pre-update snapshot
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                    VALUES
+                        ('UPDATE', 'PRE', OLD.account_id, OLD.account_number, OLD.product_type, OLD.status, OLD.available_balance, OLD.collected_balance, OLD.currency_code, OLD.created_by, OLD.created_at, OLD.updated_at);
+                    -- Post-update snapshot
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                    VALUES
+                        ('UPDATE', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
+                ELSE
+                    -- INSERT: only post snapshot
+                    INSERT INTO minicore.outbox_accounts
+                        (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                    VALUES
+                        ('INSERT', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
+                END IF;
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>
+            <!-- Restore original version that tracks all changes including balances -->
+            <sql splitStatements="false">
+                CREATE OR REPLACE FUNCTION minicore.fn_outbox_accounts()
+                RETURNS TRIGGER AS $$
+                BEGIN
+                    IF TG_OP = 'UPDATE' THEN
+                        INSERT INTO minicore.outbox_accounts
+                            (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                        VALUES
+                            ('UPDATE', 'PRE', OLD.account_id, OLD.account_number, OLD.product_type, OLD.status, OLD.available_balance, OLD.collected_balance, OLD.currency_code, OLD.created_by, OLD.created_at, OLD.updated_at);
+                        INSERT INTO minicore.outbox_accounts
+                            (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                        VALUES
+                            ('UPDATE', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
+                    ELSE
+                        INSERT INTO minicore.outbox_accounts
+                            (operation_type, snapshot_type, account_id, account_number, product_type, status, available_balance, collected_balance, currency_code, created_by, created_at, updated_at)
+                        VALUES
+                            ('INSERT', 'POS', NEW.account_id, NEW.account_number, NEW.product_type, NEW.status, NEW.available_balance, NEW.collected_balance, NEW.currency_code, NEW.created_by, NEW.created_at, NEW.updated_at);
+                    END IF;
+                    RETURN NEW;
+                END;
+                $$ LANGUAGE plpgsql
+            </sql>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

@@ -115,7 +115,8 @@ def process_bulk(conn):
     rows = [dict(zip(columns, r)) for r in cur.fetchall()]
 
     # 6. Build JSON payload — account_number + updated fields only
-    skip = {"event_id", "operation_type", "snapshot_type", "event_created_at"}
+    skip = {"event_id", "operation_type", "snapshot_type", "event_created_at",
+            "available_balance", "collected_balance"}
     events = []
     i = 0
     while i < len(rows):

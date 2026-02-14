@@ -13,5 +13,6 @@
     <include file="changes/006-remove-processed-column.xml" relativeToChangelogFile="true"/>
     <include file="changes/007-no-pending-credits.xml" relativeToChangelogFile="true"/>
     <include file="changes/008-notify-outbox.xml" relativeToChangelogFile="true"/>
+    <include file="changes/009-skip-balance-outbox.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

@@ -242,6 +242,16 @@ Maps local transaction IDs to Digital Twin transaction IDs for cross-system refe
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
+### dtw_pre_auth
+
+Pre-authorization reservations for double-spending prevention. Before debiting Mini-Core, the orchestrator calls DTW synchronously to create a PENDING debit, reserving the balance. If DTW accepts, a row is inserted here with the DTW transaction ID. After the local transaction is created, `local_transaction_id` is set. The sync process queries this table during bulk building to skip or enrich events accordingly.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `dtw_transaction_id` | VARCHAR(64) PK | DTW's pending transaction ID (always present, assigned first) |
+| `local_transaction_id` | BIGINT UNIQUE FK | Nullable. References `transactions`. Set after local transaction is created. |
+| `created_at` | TIMESTAMPTZ | Default NOW() |
+
 ### sync_cursors
 
 Bookmarks used by the sync process to track progress.
@@ -274,6 +284,7 @@ accounts ──────────────── 1:N ──── trans
                                                                       └── (trigger) ── outbox_transactions_sync_wait_confirmation
 
 transactions ──── 1:1 ──── dtw_transaction_mapping
+transactions ──── 0..1:1 ── dtw_pre_auth (nullable FK)
 transactions ──── N:1 ──── transaction_codes
 accounts ──── N:1 ──── currencies
 

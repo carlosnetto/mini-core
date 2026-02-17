@@ -15,6 +15,7 @@ import os
 import select
 import shutil
 import time
+import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -118,16 +119,75 @@ def process_bulk(conn):
     columns = [d[0] for d in cur.description]
     rows = [dict(zip(columns, r)) for r in cur.fetchall()]
 
-    # 6. Build JSON payload
+    # 5b. Query dtw_pre_auth for all transaction_ids in this batch
+    txn_ids = [r["transaction_id"] for r in rows]
+    pre_auth_map = {}  # transaction_id -> dtw_transaction_id
+    if txn_ids:
+        cur.execute(
+            "SELECT local_transaction_id, dtw_transaction_id "
+            "  FROM dtw_pre_auth "
+            " WHERE local_transaction_id = ANY(%s)",
+            (txn_ids,),
+        )
+        for pa_row in cur.fetchall():
+            pre_auth_map[pa_row[0]] = pa_row[1]
+
+    # 6. Build JSON payload (pre-auth aware)
     skip = {"event_id", "operation_type", "event_created_at"}
     events = []
+    pre_auth_pending_count = 0
+    pre_auth_posted_count = 0
     for row in rows:
+        txn_id = row["transaction_id"]
+        dtw_txn_id = pre_auth_map.get(txn_id)
+
+        if dtw_txn_id and row["status"] == "PENDING":
+            # Pre-auth exists + PENDING: transaction already exists in DTW as pending.
+            # Skip from JSON, insert mapping and confirmation directly.
+            cur.execute(
+                "INSERT INTO dtw_transaction_mapping "
+                "  (local_transaction_id, dtw_transaction_id, sync_status) "
+                "VALUES (%s, %s, 'SYNCED') "
+                "ON CONFLICT (local_transaction_id) DO NOTHING",
+                (txn_id, dtw_txn_id),
+            )
+            dtw_confirmation = f"pre-auth-{uuid.uuid4()}"
+            cur.execute(
+                "INSERT INTO outbox_transactions_confirmations "
+                "  (event_id, dtw_confirmation) "
+                "VALUES (%s, %s) ON CONFLICT (event_id) DO NOTHING",
+                (row["event_id"], dtw_confirmation),
+            )
+            pre_auth_pending_count += 1
+            continue
+
         data = {k: v for k, v in row.items() if k not in skip}
-        events.append({
+        entry = {
             "event_id": row["event_id"],
             "operation": row["operation_type"],
             **data,
-        })
+        }
+
+        if dtw_txn_id and row["status"] == "POSTED":
+            # Pre-auth exists + POSTED: DTW already has a pending transaction.
+            # Include dtw_transaction_id so DTW posts the existing pending instead
+            # of creating a new one.
+            entry["dtw_transaction_id"] = dtw_txn_id
+            pre_auth_posted_count += 1
+
+        events.append(entry)
+
+    if pre_auth_pending_count:
+        conn.commit()
+        log.info(
+            "Bulk %s — %d PENDING pre-auth events auto-confirmed (skipped from JSON)",
+            bulk_id, pre_auth_pending_count,
+        )
+    if pre_auth_posted_count:
+        log.info(
+            "Bulk %s — %d POSTED pre-auth events enriched with dtw_transaction_id",
+            bulk_id, pre_auth_posted_count,
+        )
 
     # 7. Write JSON file to writing/, then move to written/
     os.makedirs(WRITING_DIR, exist_ok=True)

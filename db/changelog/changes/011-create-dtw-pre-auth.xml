@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <changeSet id="create-dtw-pre-auth" author="mini-core">
+        <createTable schemaName="minicore" tableName="dtw_pre_auth">
+            <column name="dtw_transaction_id" type="VARCHAR(64)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="local_transaction_id" type="BIGINT">
+                <constraints nullable="true"
+                             unique="true"
+                             uniqueConstraintName="uq_dtw_pre_auth_local_transaction_id"
+                             foreignKeyName="fk_dtw_pre_auth_transaction"
+                             referencedTableSchemaName="minicore"
+                             referencedTableName="transactions"
+                             referencedColumnNames="transaction_id"/>
+            </column>
+            <column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="NOW()">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+        <rollback>
+            <dropTable schemaName="minicore" tableName="dtw_pre_auth"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

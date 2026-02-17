@@ -60,3 +60,4 @@ Mini-Core is a database-first simulation of a core banking system. All business 
 - **Numeric Precision**: Always use `NUMERIC(18,2)` for financial amounts.
 - **Modifier Rows**: PENDING→POSTED or PENDING→CANCELLED transitions are new INSERT rows with `original_transaction_id` set, not UPDATEs.
 - **UNIQUE on original_transaction_id**: Prevents double-confirm or double-cancel of a PENDING transaction.
+- **Pre-Authorization**: Debit transactions that were pre-authorized in DTW have a row in `dtw_pre_auth`. The sync process in `transaction_sync.py` auto-confirms PENDING pre-auth events (they already exist in DTW) and enriches POSTED pre-auth events with `dtw_transaction_id`. Do not send pre-authorized PENDING transactions to DTW — they are already there.

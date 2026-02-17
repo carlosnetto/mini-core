@@ -88,3 +88,11 @@ The following items were originally tracked in TODO.md and addressed during this
 - **Five-stage transaction directory**: Added `from-dtw/` subdirectory under `digital-twin/transaction/` for inbound DTW-born transactions, extending the existing four-stage file flow (`writing/`, `written/`, `confirm/`, `trash/`).
 
 - **`dtw_transaction_mapping` as single source of truth**: Updated `transaction_confirm.py` to also insert into `dtw_transaction_mapping` (with `sync_status = SYNCED`) when confirming outbound transactions. Previously, the mapping table was only populated for DTW-born transactions. Now both directions populate it, making it the single, unified answer to "is this transaction in DTW?" — a simple PK lookup instead of joining through outbox events and confirmations.
+
+## February 17, 2026
+
+### Pre-Authorization for Double-Spending Prevention
+
+- **`dtw_pre_auth` table** (changeset 011): New table for pre-authorization reservations. PK is `dtw_transaction_id` (VARCHAR(64)), with an optional UNIQUE FK `local_transaction_id` to `transactions`. Before debiting Mini-Core, the orchestrator calls DTW synchronously to create a PENDING debit, reserving the balance. If DTW accepts, a row is inserted here. After the local transaction is created, `local_transaction_id` is set. Total changesets: 81 across 11 files.
+
+- **Pre-auth aware sync** (`transaction_sync.py`): Modified bulk building to query `dtw_pre_auth` for all transaction IDs in each batch. PENDING transactions with pre-auth are auto-confirmed (mapping + confirmation inserted directly, skipped from JSON — they already exist in DTW). POSTED transactions with pre-auth are enriched with `dtw_transaction_id` in the JSON payload so DTW posts the existing pending instead of creating a duplicate.

@@ -137,7 +137,16 @@ DTW-born transaction arrives (JSON file in from-dtw/)
        → Maps local ID ↔ DTW ID in dtw_transaction_mapping
 ```
 
-The `dtw_transaction_mapping` table is the single source of truth for "is this transaction in DTW?" — populated by both directions. Query `outbox_*_sync_wait_confirmation` tables to see what's stuck — they stay small by design.
+**Pre-Authorization (double-spending prevention):**
+```
+Orchestrator calls DTW synchronously to create PENDING debit (reserves balance)
+  → DTW declines: debit rejected, Mini-Core untouched
+  → DTW accepts: dtw_pre_auth row created, then local transaction created
+       → Sync process auto-confirms PENDING pre-auth events (already in DTW)
+       → Sync process enriches POSTED pre-auth events with dtw_transaction_id
+```
+
+The `dtw_transaction_mapping` table is the single source of truth for "is this transaction in DTW?" — populated by both directions. The `dtw_pre_auth` table coordinates pre-authorized debits to prevent double-spending. Query `outbox_*_sync_wait_confirmation` tables to see what's stuck — they stay small by design.
 
 ## ER Diagram
 
@@ -164,6 +173,7 @@ minicore
   ├── outbox_transactions_confirmations
   │
   ├── dtw_transaction_mapping               Local <-> DTW ID map (single source: "is it in DTW?")
+  ├── dtw_pre_auth                          Pre-authorization reservations (double-spending prevention)
   ├── sync_cursors                          Sync process bookmarks
   │
   ├── currencies                            Reference: 10 supported currencies
@@ -266,9 +276,10 @@ db/
       008-notify-outbox.xml                 # LISTEN/NOTIFY trigger on outbox_accounts
       009-skip-balance-outbox.xml           # Skips outbox rows for balance-only updates
       010-notify-outbox-transactions.xml    # LISTEN/NOTIFY trigger on outbox_transactions
+      011-create-dtw-pre-auth.xml           # Pre-authorization table for double-spending prevention
 ```
 
-**80 changesets across 10 files.**
+**81 changesets across 11 files.**
 
 ## License
 

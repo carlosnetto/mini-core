@@ -50,7 +50,7 @@ web/
 db/
   liquibase.properties        # References .env vars via ${...} interpolation
   changelog/
-    db.changelog-master.xml   # Includes the 10 change files in order
+    db.changelog-master.xml   # Includes the 11 change files in order
     changes/
       001-create-types.xml            #  7 changesets — enums
       002-create-tables.xml           # 25 changesets — sequences, all tables, deferred FKs
@@ -62,9 +62,10 @@ db/
       008-notify-outbox.xml            #  2 changesets — LISTEN/NOTIFY trigger on outbox_accounts
       009-skip-balance-outbox.xml      #  1 changeset  — skips outbox rows for balance-only account updates
       010-notify-outbox-transactions.xml # 2 changesets — LISTEN/NOTIFY trigger on outbox_transactions
+      011-create-dtw-pre-auth.xml        #  1 changeset  — pre-authorization table for double-spending prevention
 ```
 
-**Total: 80 changesets across 10 files.**
+**Total: 81 changesets across 11 files.**
 
 ## Running
 
@@ -167,7 +168,7 @@ The frontend intentionally does **no business validation** — it sends raw requ
 | `sync_status_enum` | PENDING, SYNCED, FAILED, RECONCILED |
 | `bulk_status_enum` | CREATED, SENDING, SENT |
 
-### Tables (17)
+### Tables (18)
 
 **Core tables:**
 - `accounts` — PK from sequence starting at 1000. Two balances: `available_balance` and `collected_balance` (hardcoded as columns for simplicity; a more flexible design would use a separate `account_balances` table referencing the `balances` domain table — see DATABASE.md). No ledger balance. All monetary columns use NUMERIC(18,2), which works for fiat but not for crypto (future evolution). Optional `created_by` VARCHAR(20) for audit trail.
@@ -192,6 +193,7 @@ The frontend intentionally does **no business validation** — it sends raw requ
 
 **Sync infrastructure:**
 - `dtw_transaction_mapping` — Maps local transaction_id to DTW transaction_id. Populated by both `transaction_confirm.py` (outbound) and `transaction_from_dtw.py` (inbound). The single source of truth for "is this transaction in DTW?"
+- `dtw_pre_auth` — Pre-authorization reservations for double-spending prevention. PK = `dtw_transaction_id` (VARCHAR(64)). Optional `local_transaction_id` (BIGINT UNIQUE FK to transactions) set after local transaction is created. The sync process queries this table during bulk building: PENDING pre-auth events are auto-confirmed (already in DTW), POSTED pre-auth events include the `dtw_transaction_id` so DTW posts the existing pending.
 - `sync_cursors` — Tracks sync process progress.
 
 **Reference/configuration tables:**

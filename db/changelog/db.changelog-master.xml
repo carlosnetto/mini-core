@@ -15,5 +15,6 @@
     <include file="changes/008-notify-outbox.xml" relativeToChangelogFile="true"/>
     <include file="changes/009-skip-balance-outbox.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-notify-outbox-transactions.xml" relativeToChangelogFile="true"/>
+    <include file="changes/011-create-dtw-pre-auth.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

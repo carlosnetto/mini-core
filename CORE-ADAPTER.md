@@ -17,6 +17,7 @@ Core Adapter tables:
   outbox_accounts_confirmations                DTW acknowledgments
   outbox_transactions_confirmations            DTW acknowledgments
   dtw_transaction_mapping                      Local ↔ DTW ID map
+  dtw_pre_auth                                 Pre-authorization reservations
   sync_cursors                                 Sync process bookmarks
 
 Core Adapter processes:
@@ -272,6 +273,69 @@ WHERE ot.event_id BETWEEN :first AND :last
 DTW-born transactions are typically **credits** (deposits, incoming payments, received transfers). The existing database constraint — credit transactions cannot be PENDING, only POSTED — aligns naturally with this flow. Transactions arriving from DTW are already settled; they enter the core as POSTED.
 
 Debit transactions (withdrawals, purchases, outgoing payments) are always initiated in the core and flow outward. The Digital Twin doesn't initiate debits against the core.
+
+---
+
+## Pre-Authorization (Double-Spending Prevention)
+
+### The Problem
+
+In an eventual consistency model, Mini-Core and the Digital Twin maintain independent balances. If a debit happens simultaneously in both systems, each independently validates sufficient balance and approves — consuming the same money twice. This is the double-spending problem.
+
+### The Solution
+
+Pre-authorization solves this by reversing the order of operations for debits. Instead of debiting Mini-Core first and syncing to DTW later, the orchestrator calls DTW **synchronously** to create a PENDING debit before touching Mini-Core. DTW reserves the balance immediately. If DTW declines (insufficient funds), the debit is rejected without touching Mini-Core. If DTW accepts, Mini-Core proceeds knowing the balance is already reserved in DTW.
+
+### The Flow
+
+```
+1. Orchestrator receives debit request
+   │
+   v
+2. Call DTW synchronously: "create PENDING debit for $X"
+   │
+   ├─ DTW DECLINES (insufficient funds)
+   │     → Reject the debit. Mini-Core is never touched.
+   │
+   └─ DTW ACCEPTS → returns dtw_transaction_id
+         │
+         v
+3. INSERT INTO dtw_pre_auth (dtw_transaction_id)
+   │
+   v
+4. INSERT INTO transactions (PENDING debit in Mini-Core)
+   │  (full trigger chain fires: balance update, outbox, etc.)
+   │
+   v
+5. UPDATE dtw_pre_auth SET local_transaction_id = <new transaction_id>
+   │
+   v
+6. Transaction sync process picks up the outbox event:
+   │
+   ├─ Status is PENDING + pre-auth exists:
+   │     → Skip from JSON (transaction already exists in DTW as pending)
+   │     → Insert into dtw_transaction_mapping (SYNCED)
+   │     → Insert outbox confirmation (cleans up sync_wait)
+   │
+   └─ Later, when the PENDING is posted (modifier row inserted):
+         → Status is POSTED + pre-auth exists:
+              → Include in JSON WITH dtw_transaction_id
+              → DTW posts the existing pending instead of creating a new one
+```
+
+### The Table
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `dtw_transaction_id` | VARCHAR(64) PK | DTW's pending transaction ID (always present, assigned first) |
+| `local_transaction_id` | BIGINT UNIQUE FK | Nullable. References `transactions`. Set after local transaction is created. |
+| `created_at` | TIMESTAMPTZ | Default NOW() |
+
+The `dtw_pre_auth` table is a lightweight coordination point. The orchestrator writes to it, and the sync process reads from it. It has no triggers — the sync process in `transaction_sync.py` queries it during bulk building and adjusts its behavior based on whether a pre-auth exists and the transaction's status.
+
+### Why Not Just Skip All Pre-Authorized Transactions?
+
+Because the confirmation (PENDING → POSTED) still needs to reach DTW. The PENDING debit was created in DTW via pre-auth, but when the core posts it, DTW needs to know so it can post its own pending transaction. The sync process handles this by including the `dtw_transaction_id` in the JSON payload for POSTED pre-authorized transactions, allowing DTW to match and post the existing pending instead of creating a duplicate.
 
 ---
 

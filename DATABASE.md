@@ -1,6 +1,6 @@
 # Data Model
 
-All tables live in the `minicore` PostgreSQL schema. This document describes the data model organized by functional groups. For the synchronization strategy and rationale, see [SYNC.md](SYNC.md).
+All tables live in the `minicore` PostgreSQL schema. This document describes the data model organized by functional groups. For the synchronization strategy and rationale, see [CORE-ADAPTER.md](CORE-ADAPTER.md).
 
 ## Enums
 
@@ -184,7 +184,7 @@ Events not yet included in a bulk are identified by having `event_id` greater th
 
 ## Group 4: Sync Control
 
-These tables manage the lifecycle of sending outbox events to Digital Twin and tracking confirmations. For the full sync strategy (bulking, wire format, small-table design), see [SYNC.md](SYNC.md).
+These tables manage the lifecycle of sending outbox events to Digital Twin and tracking confirmations. For the full sync strategy (bulking, wire format, small-table design), see [CORE-ADAPTER.md](CORE-ADAPTER.md).
 
 ### outbox_accounts_bulk / outbox_transactions_bulk
 

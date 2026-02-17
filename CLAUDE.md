@@ -27,6 +27,7 @@ sync/
   account_confirm.py          # Confirmation process: polls digital-twin/account/confirm/ → inserts confirmations → moves to trash/
   transaction_sync.py         # Sync process: LISTEN/NOTIFY on outbox_transactions → bulk → JSON to digital-twin/transaction/
   transaction_confirm.py      # Confirmation process: polls digital-twin/transaction/confirm/ → inserts confirmations → moves to trash/
+  transaction_from_dtw.py     # Inbound process: polls digital-twin/transaction/from-dtw/ → creates local transactions → maps IDs
 digital-twin/                 # JSON files simulating Digital Twin sends (gitignored)
   account/
     writing/                  # Temp: file being written by sync process (milliseconds)
@@ -37,6 +38,7 @@ digital-twin/                 # JSON files simulating Digital Twin sends (gitign
     writing/                  # Temp: file being written by sync process (milliseconds)
     written/                  # Complete: file ready (manually copy to confirm/ to simulate DTW)
     confirm/             # User copies here to simulate DTW confirmation → confirm process picks up
+    from-dtw/            # DTW-born transactions: place JSON here to simulate DTW sending new transactions
     trash/                    # Done: confirmation inserted into PostgreSQL
 web/
   src/                        # React frontend (Vite + TypeScript + Tailwind CSS)
@@ -99,11 +101,14 @@ python account_sync.py        # Listens for account outbox events
 python transaction_sync.py    # Listens for transaction outbox events
 python account_confirm.py     # Polls for synced account files → inserts confirmations
 python transaction_confirm.py # Polls for synced transaction files → inserts confirmations
+python transaction_from_dtw.py # Polls for DTW-born transaction files → creates local transactions
 ```
 
 Sync processes use PostgreSQL LISTEN/NOTIFY — no polling. On notification, they sleep 30 seconds to batch events, then create a bulk (CREATED → SENDING → SENT) and write a JSON file to `digital-twin/<entity>/writing/`, then atomically move it to `digital-twin/<entity>/written/`.
 
 To simulate the Digital Twin having processed a bulk, manually copy a file from `written/` to `confirm/`. Confirmation processes poll `confirm/` every 10 seconds. When a file appears, they read it, insert a confirmation row per event into `outbox_<entity>_confirmations` (which triggers auto-deletion from `sync_wait_confirmation`), update the bulk's `confirmed_at`, and move the file to `trash/`.
+
+To simulate the Digital Twin sending a new transaction to Mini-Core, place a JSON file in `digital-twin/transaction/from-dtw/`. The DTW ingestion process polls every 10 seconds. When a file appears, it creates each transaction locally (firing the full trigger chain), maps the local ID to the DTW transaction ID in `dtw_transaction_mapping` (with `sync_status = SYNCED`), and moves the file to `trash/`. Duplicate DTW transaction IDs are skipped (idempotent).
 
 ### PostgreSQL JDBC Driver
 

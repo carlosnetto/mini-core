@@ -66,12 +66,32 @@ python account_sync.py        # Listens for account outbox events → writes JSO
 python transaction_sync.py    # Listens for transaction outbox events → writes JSON
 python account_confirm.py     # Polls for confirmed account files → updates DB
 python transaction_confirm.py # Polls for confirmed transaction files → updates DB
+python transaction_from_dtw.py # Polls for DTW-born transaction files → creates locally
 ```
 
 To simulate the Digital Twin confirming a bulk, copy the file from `written/` to `confirm/`:
 
 ```bash
 cp digital-twin/account/written/bulk-1.json digital-twin/account/confirm/
+```
+
+To simulate the Digital Twin sending a new transaction, place a JSON file in `from-dtw/`:
+
+```bash
+# Example: create a file with a DTW-born credit transaction
+cat > digital-twin/transaction/from-dtw/pix-001.json << 'EOF'
+[
+  {
+    "dtw_transaction_id": "dtw-txn-pix-001",
+    "account_id": 1000,
+    "transaction_code": 10001,
+    "amount": 500.00,
+    "direction": "CREDIT",
+    "status": "POSTED",
+    "effective_date": "2026-02-16"
+  }
+]
+EOF
 ```
 
 ## Web Dashboard
@@ -206,13 +226,15 @@ sync/
   account_confirm.py        # Confirm: polls digital-twin/account/confirm/ → DB confirmations → trash/
   transaction_sync.py       # Sync: LISTEN/NOTIFY → bulk → JSON to digital-twin/transaction/written/
   transaction_confirm.py    # Confirm: polls digital-twin/transaction/confirm/ → DB confirmations → trash/
+  transaction_from_dtw.py   # Inbound: polls digital-twin/transaction/from-dtw/ → creates transactions → maps IDs
 digital-twin/               # JSON files simulating Digital Twin sends (gitignored)
   account/
     writing/                # Temp: file being written (milliseconds)
     written/                # Complete: file ready (manually copy to confirm/ to simulate DTW)
     confirm/                # User copies here → confirm process picks up and updates DB
     trash/                  # Done: confirmation inserted into PostgreSQL
-  transaction/              # Same four-stage structure
+  transaction/              # Same four stages + from-dtw/ for inbound DTW-born transactions
+    from-dtw/               # Place JSON here to simulate DTW sending new transactions
 web/
   services/api.ts           # Typed API client
   types.ts                  # TypeScript interfaces matching DB columns

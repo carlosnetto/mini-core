@@ -48,7 +48,9 @@ Mini-Core is a database-first simulation of a core banking system. All business 
 - **Start transaction sync**: `cd sync && python transaction_sync.py`
 - **Start account confirm**: `cd sync && python account_confirm.py`
 - **Start transaction confirm**: `cd sync && python transaction_confirm.py`
+- **Start DTW-born ingestion**: `cd sync && python transaction_from_dtw.py`
 - **Simulate DTW confirmation**: `cp digital-twin/account/written/bulk-N.json digital-twin/account/confirm/`
+- **Simulate DTW-born transaction**: place a JSON file in `digital-twin/transaction/from-dtw/`
 - **Re-download JDBC driver**: `curl -L -o drivers/postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.5.jar`
 - **Check Liquibase status**: `cd db && liquibase status`
 

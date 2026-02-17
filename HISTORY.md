@@ -74,3 +74,15 @@ The following items were originally tracked in TODO.md and addressed during this
 - **Clickable event IDs**: In the Outbox views (both accounts and transactions tabs), the `event_id` column is now a clickable link that opens a read-only detail modal.
 
 - **Detail modal sections**: The modal displays the full event lifecycle organized in sections — entity details (transaction code description, amounts, status), sync timeline (visual step-by-step from creation through confirmation), bulk information (ID, status, timestamps), Digital Twin mapping (DTW transaction ID and sync status, transactions only), confirmation data (DTW confirmation string), and JSON payload (pretty-printed, if present). Sections only render when data is available (e.g., no bulk section for PENDING events).
+
+## February 16, 2026
+
+### Core Adapter & Bidirectional Transaction Sync
+
+- **SYNC.md renamed to CORE-ADAPTER.md**: Reframed the sync documentation around the Core Adapter concept — the set of tables, processes, and conventions exclusively dedicated to synchronization between Mini-Core and the Digital Twin. In the real world, this layer is known as the core adapter. Updated all references in DATABASE.md.
+
+- **Bidirectional transaction sync documented**: Accounts remain one-directional (Mini-Core → DTW). Transactions are now documented as bidirectional — transactions can be born in the Digital Twin (e.g., Pix, RTP, card purchases) and flow inbound to Mini-Core. The Core Adapter distinguishes confirmations (has `transaction_id`) from DTW-born transactions (no `transaction_id`) in the same response channel. DTW-born transactions are created locally, firing the full trigger chain, and mapped via `dtw_transaction_mapping` with `sync_status = SYNCED`.
+
+- **DTW-born transaction ingestion** (`transaction_from_dtw.py`): New sync process (5th) that polls `digital-twin/transaction/from-dtw/` every 10 seconds. For each JSON entry: checks `dtw_transaction_mapping` for idempotency, INSERTs into `transactions` (triggering lifecycle validation, balance update, balance snapshot, and outbox capture), then INSERTs into `dtw_transaction_mapping` linking the new local ID to the DTW transaction ID. Defaults `created_by` to `'DTW'`. Moves processed files to `trash/`.
+
+- **Five-stage transaction directory**: Added `from-dtw/` subdirectory under `digital-twin/transaction/` for inbound DTW-born transactions, extending the existing four-stage file flow (`writing/`, `written/`, `confirm/`, `trash/`).

@@ -106,7 +106,7 @@ python transaction_from_dtw.py # Polls for DTW-born transaction files → create
 
 Sync processes use PostgreSQL LISTEN/NOTIFY — no polling. On notification, they sleep 30 seconds to batch events, then create a bulk (CREATED → SENDING → SENT) and write a JSON file to `digital-twin/<entity>/writing/`, then atomically move it to `digital-twin/<entity>/written/`.
 
-To simulate the Digital Twin having processed a bulk, manually copy a file from `written/` to `confirm/`. Confirmation processes poll `confirm/` every 10 seconds. When a file appears, they read it, insert a confirmation row per event into `outbox_<entity>_confirmations` (which triggers auto-deletion from `sync_wait_confirmation`), update the bulk's `confirmed_at`, and move the file to `trash/`.
+To simulate the Digital Twin having processed a bulk, manually copy a file from `written/` to `confirm/`. Confirmation processes poll `confirm/` every 10 seconds. When a file appears, they read it, insert a confirmation row per event into `outbox_<entity>_confirmations` (which triggers auto-deletion from `sync_wait_confirmation`), map local transaction IDs to DTW transaction IDs in `dtw_transaction_mapping` (with `sync_status = SYNCED`), update the bulk's `confirmed_at`, and move the file to `trash/`.
 
 To simulate the Digital Twin sending a new transaction to Mini-Core, place a JSON file in `digital-twin/transaction/from-dtw/`. The DTW ingestion process polls every 10 seconds. When a file appears, it creates each transaction locally (firing the full trigger chain), maps the local ID to the DTW transaction ID in `dtw_transaction_mapping` (with `sync_status = SYNCED`), and moves the file to `trash/`. Duplicate DTW transaction IDs are skipped (idempotent).
 
@@ -191,7 +191,7 @@ The frontend intentionally does **no business validation** — it sends raw requ
 - `outbox_transactions_confirmations` — Same for transactions.
 
 **Sync infrastructure:**
-- `dtw_transaction_mapping` — Maps local transaction_id to DTW transaction_id.
+- `dtw_transaction_mapping` — Maps local transaction_id to DTW transaction_id. Populated by both `transaction_confirm.py` (outbound) and `transaction_from_dtw.py` (inbound). The single source of truth for "is this transaction in DTW?"
 - `sync_cursors` — Tracks sync process progress.
 
 **Reference/configuration tables:**

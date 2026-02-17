@@ -290,11 +290,26 @@ The `dtw_transaction_mapping` table is central to bidirectional sync. It answers
 | `created_at` | TIMESTAMPTZ | |
 | `updated_at` | TIMESTAMPTZ | |
 
-For **outbound transactions** (born in Mini-Core), the mapping is created when DTW confirms receipt. The `sync_status` starts at PENDING (when the bulk is sent) and moves to SYNCED (when confirmation arrives).
+For **outbound transactions** (born in Mini-Core), the mapping is created by `transaction_confirm.py` when DTW confirms receipt. The `sync_status` is set to SYNCED immediately — at confirmation time, the transaction is already in both systems.
 
-For **inbound transactions** (born in DTW), the mapping is created at the same time as the local transaction. The `sync_status` is SYNCED immediately — the transaction came from DTW, so it's already there.
+For **inbound transactions** (born in DTW), the mapping is created by `transaction_from_dtw.py` at the same time as the local transaction. The `sync_status` is SYNCED immediately — the transaction came from DTW, so it's already there.
 
-The UNIQUE constraint on `dtw_transaction_id` provides **idempotency**. If the same DTW response file is processed twice (e.g., after a crash and restart), the second attempt to insert the mapping will fail, and the Core Adapter can safely skip the duplicate.
+Both directions use `ON CONFLICT DO NOTHING` for **idempotency**. If the same file is processed twice (e.g., after a crash and restart), the duplicate mapping insert is silently skipped.
+
+### The Single Source of Truth
+
+The `dtw_transaction_mapping` table is the **single, unified answer** to "has this transaction been replicated to Digital Twin?" — regardless of which direction the transaction traveled:
+
+```sql
+-- Is this transaction in DTW?
+SELECT 1 FROM dtw_transaction_mapping
+WHERE local_transaction_id = :transaction_id;
+
+-- Row exists → yes, it's in DTW (either we sent it and got confirmation, or DTW sent it to us)
+-- No row    → no, it hasn't been confirmed by DTW yet (or it was never sent)
+```
+
+This is simpler and more direct than the alternative of joining through outbox events and confirmations, which answers "was this outbox event confirmed?" rather than "is this transaction in DTW?"
 
 ---
 

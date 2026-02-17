@@ -118,18 +118,26 @@ Every account change and every new transaction is automatically captured in outb
 
 ### Digital Twin Sync
 
-A complete sync lifecycle with file-based simulation of the Digital Twin:
+Bidirectional sync via the Core Adapter (see [CORE-ADAPTER.md](CORE-ADAPTER.md)):
 
+**Outbound (Mini-Core → DTW):** accounts and transactions
 ```
 Outbox event created (by trigger)
   → Sync process: bulk CREATED → SENDING → SENT, JSON written to written/
        → Sync wait rows auto-created (by trigger)
             → User copies file from written/ to confirm/ (simulates DTW)
-                 → Confirm process: inserts confirmations, moves file to trash/
+                 → Confirm process: inserts confirmations, maps IDs, moves file to trash/
                       → Sync wait row auto-deleted (by trigger)
 ```
 
-Query `outbox_*_sync_wait_confirmation` tables to see what's stuck — they stay small by design.
+**Inbound (DTW → Mini-Core):** transactions only
+```
+DTW-born transaction arrives (JSON file in from-dtw/)
+  → Ingestion process: creates transaction locally (full trigger chain fires)
+       → Maps local ID ↔ DTW ID in dtw_transaction_mapping
+```
+
+The `dtw_transaction_mapping` table is the single source of truth for "is this transaction in DTW?" — populated by both directions. Query `outbox_*_sync_wait_confirmation` tables to see what's stuck — they stay small by design.
 
 ## ER Diagram
 
@@ -155,7 +163,7 @@ minicore
   ├── outbox_accounts_confirmations         DTW acknowledgments
   ├── outbox_transactions_confirmations
   │
-  ├── dtw_transaction_mapping               Local <-> DTW transaction ID map
+  ├── dtw_transaction_mapping               Local <-> DTW ID map (single source: "is it in DTW?")
   ├── sync_cursors                          Sync process bookmarks
   │
   ├── currencies                            Reference: 10 supported currencies

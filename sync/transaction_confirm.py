@@ -1,7 +1,7 @@
 """
 Transaction Confirmation — monitors digital-twin/transaction/confirm/ for bulk
 JSON files (manually copied from written/), inserts confirmations into PostgreSQL,
-and moves processed files to trash/.
+maps local transaction IDs to DTW transaction IDs, and moves processed files to trash/.
 
 Usage:
     cd sync
@@ -61,11 +61,22 @@ def process_file(conn, filepath):
 
     for event in events:
         event_id = event["event_id"]
+        transaction_id = event["transaction_id"]
         dtw_confirmation = f"dtw-txn-{uuid.uuid4()}"
+        dtw_transaction_id = f"dtw-txn-{uuid.uuid4()}"
+
         cur.execute(
             "INSERT INTO outbox_transactions_confirmations (event_id, dtw_confirmation) "
             "VALUES (%s, %s) ON CONFLICT (event_id) DO NOTHING",
             (event_id, dtw_confirmation),
+        )
+
+        cur.execute(
+            "INSERT INTO dtw_transaction_mapping "
+            "  (local_transaction_id, dtw_transaction_id, sync_status) "
+            "VALUES (%s, %s, 'SYNCED') "
+            "ON CONFLICT (local_transaction_id) DO NOTHING",
+            (transaction_id, dtw_transaction_id),
         )
 
     cur.execute(

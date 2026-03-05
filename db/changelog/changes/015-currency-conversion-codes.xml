@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        General-purpose currency conversion codes. Work for any combination:
+          fiat → fiat   (e.g. USD → BRL)
+          fiat → crypto (e.g. USD → ETH)
+          crypto → fiat (e.g. ETH → USD)
+          crypto → crypto (e.g. ETH → SOL, prefer 50002/40002 for crypto-only conversions)
+
+        Usage: one transaction per account involved.
+          Source account: 50006 CURRENCY CONVERSION OUT  (debit  — giving up source currency)
+          Target account: 40006 CURRENCY CONVERSION IN   (credit — receiving target currency)
+    -->
+
+    <changeSet id="add-40006-currency-conversion-in" author="mini-core">
+        <sql>
+            INSERT INTO minicore.transaction_codes VALUES (40006, 'CURRENCY CONVERSION IN');
+
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (40006, 'AVAILABLE', 1);
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (40006, 'COLLECTED', 1)
+        </sql>
+        <rollback>
+            DELETE FROM minicore.transaction_code_balance_effects WHERE transaction_code = 40006;
+            DELETE FROM minicore.transaction_codes WHERE transaction_code = 40006
+        </rollback>
+    </changeSet>
+
+    <changeSet id="add-50006-currency-conversion-out" author="mini-core">
+        <sql>
+            INSERT INTO minicore.transaction_codes VALUES (50006, 'CURRENCY CONVERSION OUT');
+
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (50006, 'AVAILABLE', -1);
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (50006, 'COLLECTED', -1)
+        </sql>
+        <rollback>
+            DELETE FROM minicore.transaction_code_balance_effects WHERE transaction_code = 50006;
+            DELETE FROM minicore.transaction_codes WHERE transaction_code = 50006
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

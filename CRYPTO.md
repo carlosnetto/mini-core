@@ -11,20 +11,22 @@ Mini-Core provides transaction codes for crypto operations but does **not** enfo
 | Code  | Description                   | Use on account |
 |-------|-------------------------------|----------------|
 | 40001 | CRYPTO TRANSFER RECEIVED      | Crypto account receiving an inbound transfer |
-| 40002 | CRYPTO CONVERSION RECEIVED    | Crypto account receiving the output of a conversion |
+| 40002 | CRYPTO CONVERSION RECEIVED    | Crypto account receiving the output of a crypto-to-crypto conversion |
 | 40003 | CRYPTO PURCHASE RECEIVED      | Crypto account receiving newly purchased crypto |
 | 40004 | RECEIVED FROM EXTERNAL WALLET | Crypto account receiving from an external wallet |
 | 40005 | CRYPTO SALE PROCEEDS          | Fiat account receiving proceeds from a crypto sale |
+| 40006 | CURRENCY CONVERSION IN        | Any account receiving the target currency of a conversion (fiat or crypto) |
 
 ### Debits (50001–50099) — decrease balance
 
 | Code  | Description                   | Use on account |
 |-------|-------------------------------|----------------|
 | 50001 | CRYPTO TRANSFER SENT          | Crypto account sending an outbound transfer |
-| 50002 | CRYPTO CONVERSION SENT        | Crypto account giving up the input of a conversion |
+| 50002 | CRYPTO CONVERSION SENT        | Crypto account giving up the input of a crypto-to-crypto conversion |
 | 50003 | CRYPTO SALE                   | Crypto account being debited when crypto is sold |
 | 50004 | SENT TO EXTERNAL WALLET       | Crypto account sending to an external wallet |
 | 50005 | CRYPTO PURCHASE PAYMENT       | Fiat account being debited to pay for crypto |
+| 50006 | CURRENCY CONVERSION OUT       | Any account giving up the source currency of a conversion (fiat or crypto) |
 
 ---
 
@@ -71,6 +73,19 @@ If both accounts exist in Mini-Core, insert one transaction per account. If only
 Account: ETH account         code: 50002  CRYPTO CONVERSION SENT       direction: DEBIT   status: POSTED
 Account: SOL account         code: 40002  CRYPTO CONVERSION RECEIVED    direction: CREDIT  status: POSTED
 ```
+
+---
+
+### Converting any currency (e.g. USD → BRL, USD → ETH, ETH → USD)
+
+Use the general-purpose conversion codes when crossing currency types (fiat↔fiat, fiat↔crypto):
+
+```
+Account: USD account         code: 50006  CURRENCY CONVERSION OUT      direction: DEBIT   status: POSTED
+Account: BRL account         code: 40006  CURRENCY CONVERSION IN       direction: CREDIT  status: POSTED
+```
+
+For crypto-to-crypto you may use either `50002/40002` or `50006/40006` — prefer `50002/40002` when both sides are crypto to keep the intent explicit.
 
 ---
 

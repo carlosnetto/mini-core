@@ -16,5 +16,7 @@
     <include file="changes/009-skip-balance-outbox.xml" relativeToChangelogFile="true"/>
     <include file="changes/010-notify-outbox-transactions.xml" relativeToChangelogFile="true"/>
     <include file="changes/011-create-dtw-pre-auth.xml" relativeToChangelogFile="true"/>
+    <include file="changes/012-widen-numeric-precision.xml" relativeToChangelogFile="true"/>
+    <include file="changes/013-currency-decimal-places.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

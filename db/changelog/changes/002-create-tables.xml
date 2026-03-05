@@ -254,7 +254,9 @@
             INSERT INTO minicore.currencies (currency_code) VALUES ('BRL1');
             INSERT INTO minicore.currencies (currency_code) VALUES ('BRLD');
             INSERT INTO minicore.currencies (currency_code) VALUES ('BRLV');
-            INSERT INTO minicore.currencies (currency_code) VALUES ('BRLN')
+            INSERT INTO minicore.currencies (currency_code) VALUES ('BRLN');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('SOL');
+            INSERT INTO minicore.currencies (currency_code) VALUES ('EURC')
         </sql>
         <rollback>DROP TABLE IF EXISTS minicore.currencies</rollback>
     </changeSet>

@@ -99,7 +99,19 @@
             INSERT INTO minicore.transaction_codes VALUES (30017, 'DORMANT ACCOUNT FEE');
             INSERT INTO minicore.transaction_codes VALUES (30018, 'EARLY CD WITHDRAWAL PENALTY');
             INSERT INTO minicore.transaction_codes VALUES (30019, 'EXPEDITED DELIVERY FEE');
-            INSERT INTO minicore.transaction_codes VALUES (30020, 'RESEARCH / RECONCILIATION FEE')
+            INSERT INTO minicore.transaction_codes VALUES (30020, 'RESEARCH / RECONCILIATION FEE');
+
+            -- CRYPTO CREDITS  (40001 – 40099)
+            INSERT INTO minicore.transaction_codes VALUES (40001, 'CRYPTO TRANSFER RECEIVED');
+            INSERT INTO minicore.transaction_codes VALUES (40002, 'CRYPTO CONVERSION RECEIVED');
+            INSERT INTO minicore.transaction_codes VALUES (40003, 'CRYPTO PURCHASE');
+            INSERT INTO minicore.transaction_codes VALUES (40004, 'RECEIVED FROM EXTERNAL WALLET');
+
+            -- CRYPTO DEBITS  (50001 – 50099)
+            INSERT INTO minicore.transaction_codes VALUES (50001, 'CRYPTO TRANSFER SENT');
+            INSERT INTO minicore.transaction_codes VALUES (50002, 'CRYPTO CONVERSION SENT');
+            INSERT INTO minicore.transaction_codes VALUES (50003, 'CRYPTO SALE');
+            INSERT INTO minicore.transaction_codes VALUES (50004, 'SENT TO EXTERNAL WALLET')
         </sql>
         <rollback>DELETE FROM minicore.transaction_codes</rollback>
     </changeSet>
@@ -118,7 +130,21 @@
             SELECT tc.transaction_code, b.balance_name, -1
             FROM minicore.transaction_codes tc
             CROSS JOIN minicore.balances b
-            WHERE tc.transaction_code BETWEEN 20001 AND 30099
+            WHERE tc.transaction_code BETWEEN 20001 AND 30099;
+
+            -- Crypto Credits (40001-40099): +1 on both balances
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect)
+            SELECT tc.transaction_code, b.balance_name, 1
+            FROM minicore.transaction_codes tc
+            CROSS JOIN minicore.balances b
+            WHERE tc.transaction_code BETWEEN 40001 AND 40099;
+
+            -- Crypto Debits (50001-50099): -1 on both balances
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect)
+            SELECT tc.transaction_code, b.balance_name, -1
+            FROM minicore.transaction_codes tc
+            CROSS JOIN minicore.balances b
+            WHERE tc.transaction_code BETWEEN 50001 AND 50099
         </sql>
         <rollback>DELETE FROM minicore.transaction_code_balance_effects</rollback>
     </changeSet>

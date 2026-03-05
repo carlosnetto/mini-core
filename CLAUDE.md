@@ -63,9 +63,11 @@ db/
       009-skip-balance-outbox.xml      #  1 changeset  — skips outbox rows for balance-only account updates
       010-notify-outbox-transactions.xml # 2 changesets — LISTEN/NOTIFY trigger on outbox_transactions
       011-create-dtw-pre-auth.xml        #  1 changeset  — pre-authorization table for double-spending prevention
+      012-widen-numeric-precision.xml    #  6 changesets — widen all monetary columns to NUMERIC(28,8)
+      013-currency-decimal-places.xml    #  3 changesets — decimal_places per currency + transaction amount validation trigger
 ```
 
-**Total: 81 changesets across 11 files.**
+**Total: 90 changesets across 13 files.**
 
 ## Running
 

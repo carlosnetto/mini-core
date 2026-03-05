@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!-- Widen all monetary columns from NUMERIC(18,2) to NUMERIC(28,8) to support up to 8 decimal places.
+         This is required for crypto currencies (ETH, POL, SOL) and stablecoins (USDC, USDT, EURC).
+         NUMERIC(28,8): up to 20 integer digits + 8 decimal digits, exact (no floating-point imprecision). -->
+
+    <changeSet id="widen-accounts-balance-columns" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.accounts
+                ALTER COLUMN available_balance TYPE NUMERIC(28,8),
+                ALTER COLUMN collected_balance TYPE NUMERIC(28,8)
+        </sql>
+        <rollback>
+            ALTER TABLE minicore.accounts
+                ALTER COLUMN available_balance TYPE NUMERIC(18,2),
+                ALTER COLUMN collected_balance TYPE NUMERIC(18,2)
+        </rollback>
+    </changeSet>
+
+    <changeSet id="widen-transactions-amount-column" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.transactions
+                ALTER COLUMN amount TYPE NUMERIC(28,8)
+        </sql>
+        <rollback>
+            ALTER TABLE minicore.transactions
+                ALTER COLUMN amount TYPE NUMERIC(18,2)
+        </rollback>
+    </changeSet>
+
+    <changeSet id="widen-transaction-balances-columns" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.transaction_balances
+                ALTER COLUMN available_balance TYPE NUMERIC(28,8),
+                ALTER COLUMN collected_balance TYPE NUMERIC(28,8)
+        </sql>
+        <rollback>
+            ALTER TABLE minicore.transaction_balances
+                ALTER COLUMN available_balance TYPE NUMERIC(18,2),
+                ALTER COLUMN collected_balance TYPE NUMERIC(18,2)
+        </rollback>
+    </changeSet>
+
+    <changeSet id="widen-outbox-accounts-balance-columns" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_accounts
+                ALTER COLUMN available_balance TYPE NUMERIC(28,8),
+                ALTER COLUMN collected_balance TYPE NUMERIC(28,8)
+        </sql>
+        <rollback>
+            ALTER TABLE minicore.outbox_accounts
+                ALTER COLUMN available_balance TYPE NUMERIC(18,2),
+                ALTER COLUMN collected_balance TYPE NUMERIC(18,2)
+        </rollback>
+    </changeSet>
+
+    <changeSet id="widen-outbox-transactions-amount-column" author="mini-core">
+        <sql>
+            ALTER TABLE minicore.outbox_transactions
+                ALTER COLUMN amount TYPE NUMERIC(28,8)
+        </sql>
+        <rollback>
+            ALTER TABLE minicore.outbox_transactions
+                ALTER COLUMN amount TYPE NUMERIC(18,2)
+        </rollback>
+    </changeSet>
+
+    <!-- Recreate fn_update_account_balance with widened variable types to match the new column precision -->
+
+    <changeSet id="fn-update-account-balance-widen" author="mini-core">
+        <sql splitStatements="false">
+            CREATE OR REPLACE FUNCTION minicore.fn_update_account_balance()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_code        NUMERIC(5);
+                v_amount      NUMERIC(28,8);
+                v_sign        SMALLINT;
+                v_avail_delta NUMERIC(28,8);
+                v_coll_delta  NUMERIC(28,8);
+                v_available   NUMERIC(28,8);
+                v_collected   NUMERIC(28,8);
+            BEGIN
+                IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'POSTED' THEN
+                    -- Confirmation of a PENDING: balance already applied, just snapshot
+                    SELECT available_balance, collected_balance
+                    INTO v_available, v_collected
+                    FROM minicore.accounts
+                    WHERE account_id = NEW.account_id;
+                ELSE
+                    IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'CANCELLED' THEN
+                        -- Cancellation: reverse the ORIGINAL transaction's balance effects
+                        SELECT transaction_code, amount
+                        INTO v_code, v_amount
+                        FROM minicore.transactions
+                        WHERE transaction_id = NEW.original_transaction_id;
+                        v_sign := -1;
+                    ELSE
+                        -- Born transaction (PENDING or POSTED): apply effects normally
+                        v_code := NEW.transaction_code;
+                        v_amount := NEW.amount;
+                        v_sign := 1;
+                    END IF;
+
+                    -- Compute balance deltas from transaction_code_balance_effects
+                    SELECT
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'AVAILABLE' THEN v_sign * v_amount * e.effect END), 0),
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'COLLECTED' THEN v_sign * v_amount * e.effect END), 0)
+                    INTO v_avail_delta, v_coll_delta
+                    FROM minicore.transaction_code_balance_effects e
+                    WHERE e.transaction_code = v_code;
+
+                    -- Apply deltas
+                    UPDATE minicore.accounts
+                    SET available_balance = available_balance + v_avail_delta,
+                        collected_balance = collected_balance + v_coll_delta,
+                        updated_at = NOW()
+                    WHERE account_id = NEW.account_id
+                    RETURNING available_balance, collected_balance
+                    INTO v_available, v_collected;
+                END IF;
+
+                -- Record post-transaction balance snapshot
+                INSERT INTO minicore.transaction_balances
+                    (transaction_id, account_id, available_balance, collected_balance)
+                VALUES
+                    (NEW.transaction_id, NEW.account_id, v_available, v_collected);
+
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </sql>
+        <rollback>
+            CREATE OR REPLACE FUNCTION minicore.fn_update_account_balance()
+            RETURNS TRIGGER AS $$
+            DECLARE
+                v_code        NUMERIC(5);
+                v_amount      NUMERIC(18,2);
+                v_sign        SMALLINT;
+                v_avail_delta NUMERIC(18,2);
+                v_coll_delta  NUMERIC(18,2);
+                v_available   NUMERIC(18,2);
+                v_collected   NUMERIC(18,2);
+            BEGIN
+                IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'POSTED' THEN
+                    SELECT available_balance, collected_balance
+                    INTO v_available, v_collected
+                    FROM minicore.accounts
+                    WHERE account_id = NEW.account_id;
+                ELSE
+                    IF NEW.original_transaction_id IS NOT NULL AND NEW.status = 'CANCELLED' THEN
+                        SELECT transaction_code, amount
+                        INTO v_code, v_amount
+                        FROM minicore.transactions
+                        WHERE transaction_id = NEW.original_transaction_id;
+                        v_sign := -1;
+                    ELSE
+                        v_code := NEW.transaction_code;
+                        v_amount := NEW.amount;
+                        v_sign := 1;
+                    END IF;
+                    SELECT
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'AVAILABLE' THEN v_sign * v_amount * e.effect END), 0),
+                        COALESCE(SUM(CASE WHEN e.balance_name = 'COLLECTED' THEN v_sign * v_amount * e.effect END), 0)
+                    INTO v_avail_delta, v_coll_delta
+                    FROM minicore.transaction_code_balance_effects e
+                    WHERE e.transaction_code = v_code;
+                    UPDATE minicore.accounts
+                    SET available_balance = available_balance + v_avail_delta,
+                        collected_balance = collected_balance + v_coll_delta,
+                        updated_at = NOW()
+                    WHERE account_id = NEW.account_id
+                    RETURNING available_balance, collected_balance
+                    INTO v_available, v_collected;
+                END IF;
+                INSERT INTO minicore.transaction_balances
+                    (transaction_id, account_id, available_balance, collected_balance)
+                VALUES
+                    (NEW.transaction_id, NEW.account_id, v_available, v_collected);
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

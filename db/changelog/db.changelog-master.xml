@@ -18,5 +18,6 @@
     <include file="changes/011-create-dtw-pre-auth.xml" relativeToChangelogFile="true"/>
     <include file="changes/012-widen-numeric-precision.xml" relativeToChangelogFile="true"/>
     <include file="changes/013-currency-decimal-places.xml" relativeToChangelogFile="true"/>
+    <include file="changes/014-fix-crypto-transaction-codes.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

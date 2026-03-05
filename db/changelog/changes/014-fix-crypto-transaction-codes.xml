@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-latest.xsd">
+
+    <!--
+        Crypto transactions involve two accounts and two transaction codes:
+
+        Buy crypto:
+          50005 CRYPTO PURCHASE PAYMENT  → debit fiat account (paying for crypto)
+          40003 CRYPTO PURCHASE RECEIVED → credit crypto account (receiving purchased crypto)
+
+        Sell crypto:
+          50003 CRYPTO SALE              → debit crypto account (giving up crypto)
+          40005 CRYPTO SALE PROCEEDS     → credit fiat account (receiving sale proceeds)
+    -->
+
+    <changeSet id="rename-40003-crypto-purchase" author="mini-core">
+        <sql>
+            UPDATE minicore.transaction_codes
+            SET description = 'CRYPTO PURCHASE RECEIVED'
+            WHERE transaction_code = 40003
+        </sql>
+        <rollback>
+            UPDATE minicore.transaction_codes
+            SET description = 'CRYPTO PURCHASE'
+            WHERE transaction_code = 40003
+        </rollback>
+    </changeSet>
+
+    <changeSet id="add-50005-crypto-purchase-payment" author="mini-core">
+        <sql>
+            INSERT INTO minicore.transaction_codes VALUES (50005, 'CRYPTO PURCHASE PAYMENT');
+
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (50005, 'AVAILABLE', -1);
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (50005, 'COLLECTED', -1)
+        </sql>
+        <rollback>
+            DELETE FROM minicore.transaction_code_balance_effects WHERE transaction_code = 50005;
+            DELETE FROM minicore.transaction_codes WHERE transaction_code = 50005
+        </rollback>
+    </changeSet>
+
+    <changeSet id="add-40005-crypto-sale-proceeds" author="mini-core">
+        <sql>
+            INSERT INTO minicore.transaction_codes VALUES (40005, 'CRYPTO SALE PROCEEDS');
+
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (40005, 'AVAILABLE', 1);
+            INSERT INTO minicore.transaction_code_balance_effects (transaction_code, balance_name, effect) VALUES (40005, 'COLLECTED', 1)
+        </sql>
+        <rollback>
+            DELETE FROM minicore.transaction_code_balance_effects WHERE transaction_code = 40005;
+            DELETE FROM minicore.transaction_codes WHERE transaction_code = 40005
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>

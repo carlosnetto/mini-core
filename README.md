@@ -44,17 +44,20 @@ cd server
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python server.py                    # API on http://localhost:5001
+python server.py --port 5010        # API on a custom port
 
 # In another terminal, start the frontend:
 cd web
-npm install && npm run dev          # Frontend on http://localhost:3000
+npm install && npm run dev                        # Frontend on http://localhost:3000, proxies /api to :5001
+API_PORT=5010 npm run dev -- --port 3010          # Custom ports for both frontend and API proxy
 ```
 
 For production, build the frontend first and let the Flask server serve everything:
 
 ```bash
 cd web && npm run build && cd ..
-cd server && python server.py       # Everything on http://localhost:5001
+cd server && python server.py                     # Everything on http://localhost:5001
+cd server && python server.py --port 5010         # Everything on http://localhost:5010
 ```
 
 5. Start the sync and confirmation processes:

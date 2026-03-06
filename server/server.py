@@ -525,6 +525,9 @@ def serve_spa(path):
 # ===================================================================
 
 if __name__ == "__main__":
-    port = int(os.getenv("SERVER_PORT", "5001"))
-    print(f"Mini-Core server starting on http://localhost:{port}")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=int(os.getenv("SERVER_PORT", "5001")))
+    args = parser.parse_args()
+    print(f"Mini-Core server starting on http://localhost:{args.port}")
+    app.run(host="0.0.0.0", port=args.port, debug=True)

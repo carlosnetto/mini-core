@@ -11,6 +11,15 @@ set -euo pipefail
 
 MINICORE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+INCLUDE_DATA=false
+
+for arg in "$@"; do
+  case "$arg" in
+    --transferdata) INCLUDE_DATA=true ;;
+    *) echo "Unknown argument: $arg" >&2; exit 1 ;;
+  esac
+done
+
 PACK_NAME="mini-core-transfer-${TIMESTAMP}"
 TMP_DIR="/tmp/${PACK_NAME}"
 OUTPUT="${HOME}/${PACK_NAME}.tar.gz"
@@ -30,19 +39,24 @@ mkdir -p "${TMP_DIR}"
 echo "--> Copying .env..."
 cp "${ENV_FILE}" "${TMP_DIR}/mini-core.env"
 
-# 2. PostgreSQL schema dump
-echo "--> Dumping PostgreSQL schema (${DB_SCHEMA})..."
+# 2. PostgreSQL dump
+if [ "${INCLUDE_DATA}" = true ]; then
+  echo "--> Dumping PostgreSQL schema + data (${DB_SCHEMA})..."
+else
+  echo "--> Dumping PostgreSQL schema only (${DB_SCHEMA})..."
+fi
 if ! docker ps --format '{{.Names}}' | grep -q "^global_banking_db$"; then
   echo "ERROR: Docker container 'global_banking_db' is not running." >&2
   exit 1
 fi
+DUMP_FLAGS="--schema=${DB_SCHEMA} --no-owner --no-acl"
+if [ "${INCLUDE_DATA}" = false ]; then
+  DUMP_FLAGS="${DUMP_FLAGS} --schema-only"
+fi
 docker exec global_banking_db pg_dump \
   -U "${DB_USERNAME}" \
   -d "${DB_NAME}" \
-  --schema="${DB_SCHEMA}" \
-  --schema-only \
-  --no-owner \
-  --no-acl \
+  ${DUMP_FLAGS} \
   > "${TMP_DIR}/minicore-schema.sql"
 echo "    $(wc -l < "${TMP_DIR}/minicore-schema.sql") lines written"
 

@@ -5,14 +5,30 @@ set -euo pipefail
 # unpack.sh
 #
 # Restores a mini-core transfer pack on the target machine.
-# Run from inside the extracted tarball directory.
+# Usage: ./unpack.sh <path-to-transfer-pack.tar.gz>
+#   OR:  run directly from inside an already-extracted tarball directory.
 # ---------------------------------------------------------------------------
 
-PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MINICORE_DIR="${HOME}/Git/mini-core"
 
 echo "Mini-Core Unpack"
 echo "================"
+
+# If a tarball argument is provided, extract it to a temp dir and work from there
+if [ $# -ge 1 ]; then
+  TARBALL="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+  if [ ! -f "${TARBALL}" ]; then
+    echo "ERROR: File not found: $1" >&2
+    exit 1
+  fi
+  TMPDIR_PACK="$(mktemp -d)"
+  trap 'rm -rf "${TMPDIR_PACK}"' EXIT
+  echo "--> Extracting ${TARBALL}..."
+  tar -xzf "${TARBALL}" -C "${TMPDIR_PACK}" --strip-components=1
+  PACK_DIR="${TMPDIR_PACK}"
+else
+  PACK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
 
 # 1. .env
 ENV_SRC="${PACK_DIR}/mini-core.env"
@@ -26,6 +42,10 @@ if [ -f "${ENV_SRC}" ]; then
 fi
 
 # Load credentials
+if [ ! -f "${MINICORE_DIR}/.env" ]; then
+  echo "ERROR: ${MINICORE_DIR}/.env not found — no credentials to load." >&2
+  exit 1
+fi
 source "${MINICORE_DIR}/.env"
 
 # 2. Schema restore

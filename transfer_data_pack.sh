@@ -49,7 +49,7 @@ if ! docker ps --format '{{.Names}}' | grep -q "^global_banking_db$"; then
   echo "ERROR: Docker container 'global_banking_db' is not running." >&2
   exit 1
 fi
-DUMP_FLAGS="--schema=${DB_SCHEMA} --no-owner --no-acl --clean --if-exists"
+DUMP_FLAGS="--schema=${DB_SCHEMA} --no-owner --no-acl"
 if [ "${INCLUDE_DATA}" = false ]; then
   DUMP_FLAGS="${DUMP_FLAGS} --schema-only"
 fi

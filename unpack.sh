@@ -58,6 +58,11 @@ if [ -f "${SCHEMA_SQL}" ]; then
     echo "       docker exec -i global_banking_db psql -U ${DB_USERNAME} -d ${DB_NAME} < ${SCHEMA_SQL}"
     exit 1
   fi
+  echo "--> Dropping and recreating schema ${DB_SCHEMA}..."
+  docker exec global_banking_db psql \
+    -U "${DB_USERNAME}" \
+    -d "${DB_NAME}" \
+    -c "DROP SCHEMA IF EXISTS ${DB_SCHEMA} CASCADE; CREATE SCHEMA ${DB_SCHEMA};"
   docker exec -i global_banking_db psql \
     -U "${DB_USERNAME}" \
     -d "${DB_NAME}" \

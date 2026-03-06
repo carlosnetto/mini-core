@@ -236,6 +236,10 @@ When running with `--contexts=seed`, creates 5 accounts and 10 transactions:
 
 ```
 .env                        # DB connection (not committed)
+listschemas.sh              # List all schemas in the database
+listtables.sh               # List tables (default: minicore; pass schema name as arg)
+transfer_data_pack.sh       # Pack .env + schema dump into a timestamped tarball
+unpack.sh                   # Restore credentials and schema on target machine
 server/
   server.py                 # Flask API + SPA static serving
   requirements.txt          # flask, psycopg2-binary, python-dotenv

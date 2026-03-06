@@ -96,3 +96,12 @@ The following items were originally tracked in TODO.md and addressed during this
 - **`dtw_pre_auth` table** (changeset 011): New table for pre-authorization reservations. PK is `dtw_transaction_id` (VARCHAR(64)), with an optional UNIQUE FK `local_transaction_id` to `transactions`. Before debiting Mini-Core, the orchestrator calls DTW synchronously to create a PENDING debit, reserving the balance. If DTW accepts, a row is inserted here. After the local transaction is created, `local_transaction_id` is set. Total changesets: 81 across 11 files.
 
 - **Pre-auth aware sync** (`transaction_sync.py`): Modified bulk building to query `dtw_pre_auth` for all transaction IDs in each batch. PENDING transactions with pre-auth are auto-confirmed (mapping + confirmation inserted directly, skipped from JSON — they already exist in DTW). POSTED transactions with pre-auth are enriched with `dtw_transaction_id` in the JSON payload so DTW posts the existing pending instead of creating a duplicate.
+
+## March 6, 2026
+
+### Utility Scripts
+
+- **`listschemas.sh`**: Lists all schemas in the database (`\dn+`) using credentials from `.env`.
+- **`listtables.sh`**: Lists tables in the `minicore` schema by default. Accepts an optional schema name argument to list tables in any schema.
+- **`transfer_data_pack.sh`**: Packs the `.env` credentials and a `pg_dump --schema-only` of the `minicore` schema into a timestamped tarball (`~/mini-core-transfer-TIMESTAMP.tar.gz`). Includes `unpack.sh` inside the archive for easy transfer to another machine.
+- **`unpack.sh`**: Restores a transfer pack on the target machine — places `.env` in the repo root and restores the schema dump into the running `global_banking_db` Docker container.

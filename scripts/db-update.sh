@@ -8,7 +8,7 @@
 # Requires:
 #   - .env in the repo root (DB_HOST, DB_PORT, DB_NAME, DB_SCHEMA, DB_USERNAME, DB_PASSWORD)
 #   - Docker running (Colima, Docker Desktop, or any compatible runtime)
-#   - drivers/postgresql.jar present (re-download with the command printed on error)
+#   - curl (to auto-download the PostgreSQL JDBC driver on first run)
 
 set -euo pipefail
 
@@ -31,10 +31,10 @@ set +a
 
 # ── JDBC driver ───────────────────────────────────────────────────────────────
 if [ -z "$(ls "$DRIVERS_DIR"/*.jar 2>/dev/null)" ]; then
-    echo "ERROR: No JDBC driver found in $DRIVERS_DIR"
-    echo "       Download it with:"
-    echo "         curl -L -o drivers/postgresql.jar https://jdbc.postgresql.org/download/postgresql-42.7.5.jar"
-    exit 1
+    echo "PostgreSQL JDBC driver not found. Downloading..."
+    mkdir -p "$DRIVERS_DIR"
+    curl -L -o "$DRIVERS_DIR/postgresql.jar" https://jdbc.postgresql.org/download/postgresql-42.7.5.jar
+    echo ""
 fi
 
 # ── Liquibase contexts ────────────────────────────────────────────────────────

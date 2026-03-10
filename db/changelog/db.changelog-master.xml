@@ -20,5 +20,6 @@
     <include file="changes/013-currency-decimal-places.xml" relativeToChangelogFile="true"/>
     <include file="changes/014-fix-crypto-transaction-codes.xml" relativeToChangelogFile="true"/>
     <include file="changes/015-currency-conversion-codes.xml" relativeToChangelogFile="true"/>
+    <include file="changes/016-allow-pending-credits.xml" relativeToChangelogFile="true"/>
 
 </databaseChangeLog>

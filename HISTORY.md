@@ -105,3 +105,9 @@ The following items were originally tracked in TODO.md and addressed during this
 - **`listtables.sh`**: Lists tables in the `minicore` schema by default. Accepts an optional schema name argument to list tables in any schema.
 - **`transfer_data_pack.sh`**: Packs the `.env` credentials and a `pg_dump --schema-only` of the `minicore` schema into a timestamped tarball (`~/mini-core-transfer-TIMESTAMP.tar.gz`). Includes `unpack.sh` inside the archive for easy transfer to another machine.
 - **`unpack.sh`**: Restores a transfer pack on the target machine — places `.env` in the repo root and restores the schema dump into the running `global_banking_db` Docker container.
+
+## March 10, 2026
+
+### Liquibase Update Script
+
+- **`scripts/db-update.sh`**: Runs Liquibase via `docker run` on the target server — no `docker-compose` required. Reads `.env`, validates the JDBC driver exists, checks Docker is running, then executes `liquibase update` with `--network host`. Accepts `--seed` flag to include seed/test data (`LIQUIBASE_CONTEXTS=seed`). Prints connection info before running so the operator can confirm the target.

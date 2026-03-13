@@ -38,7 +38,7 @@ if [ -z "$(ls "$DRIVERS_DIR"/*.jar 2>/dev/null)" ]; then
 fi
 
 # ── Liquibase contexts ────────────────────────────────────────────────────────
-CONTEXTS=""
+CONTEXTS="!seed"
 for arg in "$@"; do
     case "$arg" in
         --seed) CONTEXTS="seed" ;;
@@ -55,7 +55,7 @@ fi
 
 # ── Run Liquibase ─────────────────────────────────────────────────────────────
 echo "Applying Liquibase changesets..."
-[ -n "$CONTEXTS" ] && echo "  contexts : $CONTEXTS" || echo "  contexts : (none — seed data skipped)"
+echo "  contexts : $CONTEXTS"
 echo "  host     : ${DB_HOST}:${DB_PORT}"
 echo "  database : ${DB_NAME}"
 echo "  schema   : ${DB_SCHEMA}"
@@ -71,7 +71,7 @@ docker run --rm \
     --username="${DB_USERNAME}" \
     --password="${DB_PASSWORD}" \
     --default-schema-name="${DB_SCHEMA}" \
-    ${CONTEXTS:+--contexts="$CONTEXTS"} \
+    --contexts="$CONTEXTS" \
     update
 
 echo ""
